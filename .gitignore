@@ -50,3 +50,18 @@ yarn-error.log*
 .DS_Store
 .cache/
 tmp/
+
+# InsForge & AI agent skills
+.insforge
+.agent
+.agents
+.augment
+.claude
+.cline
+.github/copilot*
+.kilocode
+.qoder
+.qwen
+.roo
+.trae
+.windsurf

@@ -1,0 +1,234 @@
+/* Aliester - Auth Screen Styles */
+
+/* Auth Loading */
+.auth-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  z-index: 5000;
+  gap: var(--space-md);
+}
+
+.auth-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--oc-black);
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+}
+
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
+
+.auth-loading-text {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/* Auth Screen */
+.auth-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  z-index: 4000;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-2xl) var(--space-xl);
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: var(--space-xl);
+}
+
+.auth-logo {
+  width: 40px;
+  height: 40px;
+  background: var(--oc-black);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-inverse);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  margin: 0 auto var(--space-md);
+}
+
+.auth-title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  margin-bottom: var(--space-xs);
+}
+
+.auth-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+/* Auth Form */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.auth-form .input-group {
+  gap: var(--space-xs);
+}
+
+.auth-form .input {
+  height: 40px;
+  width: 100%;
+}
+
+.auth-form .btn {
+  width: 100%;
+  height: 40px;
+  font-size: var(--text-base);
+  margin-top: var(--space-xs);
+}
+
+.auth-error {
+  background: var(--error-light);
+  color: var(--error);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.auth-success {
+  background: var(--success-light);
+  color: var(--success);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: var(--space-lg);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.auth-footer a {
+  color: var(--text-primary);
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-default);
+  transition: border-color var(--transition-fast);
+}
+
+.auth-footer a:hover {
+  border-color: var(--oc-black);
+}
+
+/* Divider */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin: var(--space-lg) 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+/* Google button placeholder (disabled for now) */
+.auth-google-btn {
+  width: 100%;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  opacity: 0.6;
+  transition: all var(--transition-fast);
+}
+
+/* Verify code input group */
+.auth-code-input {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: center;
+}
+
+.auth-code-input .input {
+  width: 44px;
+  height: 48px;
+  text-align: center;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.auth-resend {
+  text-align: center;
+  margin-top: var(--space-md);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.auth-resend a {
+  color: var(--text-primary);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.auth-resend a:hover {
+  text-decoration: underline;
+}
+
+/* Sidebar logout button */
+.sidebar-logout-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+  background: none;
+  border: none;
+}
+
+.sidebar-logout-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-inverse);
+}

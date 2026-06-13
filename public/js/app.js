@@ -16,6 +16,7 @@ const exchangeRates = {
 const Router = {
   routes: {},
   current: null,
+  _initialized: false,
 
   register(path, handler) {
     this.routes[path] = handler;
@@ -26,6 +27,11 @@ const Router = {
   },
 
   init() {
+    if (this._initialized) {
+      this.resolve();
+      return;
+    }
+    this._initialized = true;
     window.addEventListener('hashchange', () => this.resolve());
     this.resolve();
   },
@@ -51,6 +57,7 @@ const Router = {
   updateBreadcrumb(path) {
     const names = {
       '/': 'Dashboard',
+      '/asistente': 'Asistente',
       '/cuentas': 'Cuentas',
       '/finanzas': 'Finanzas',
       '/proyectos': 'Proyectos',
@@ -214,8 +221,36 @@ function loadPreferences() {
   }
 }
 
-// Init app
+// Init app — gated on auth
 document.addEventListener('DOMContentLoaded', () => {
-  Router.init();
   loadPreferences();
+
+  // Router is initialized only after auth resolves.
+  setTimeout(() => {
+    if (!window.insforge) {
+      var loading = document.getElementById('auth-loading');
+      if (loading) {
+        loading.innerHTML =
+          '<p class="auth-loading-text">No se pudo cargar el sistema. Recarga la pagina.</p>';
+      }
+    }
+  }, 10000);
+});
+
+window.addEventListener('auth-loading', () => {
+  // Loading state is shown by default.
+});
+
+window.addEventListener('auth-ready', async (e) => {
+  const user = e.detail?.user ?? null;
+
+  if (user) {
+    showAppShell(user);
+    if (typeof loadAllData === 'function' && !isDataLoaded()) {
+      await loadAllData();
+    }
+    Router.init();
+  } else {
+    showAuthScreen();
+  }
 });
