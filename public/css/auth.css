@@ -48,7 +48,7 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
   padding: var(--space-2xl) var(--space-xl);
 }
 
@@ -224,8 +224,10 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   flex-shrink: 0;
+  align-self: center;
   background: none;
   border: none;
+  padding: 0;
 }
 
 .sidebar-logout-btn:hover {
