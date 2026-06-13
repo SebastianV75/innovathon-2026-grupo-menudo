@@ -67,7 +67,7 @@ const Router = {
     };
     const breadcrumb = document.getElementById('breadcrumb');
     breadcrumb.innerHTML = `
-      <span>Aliester</span>
+      <a href="#/" class="navbar-breadcrumb-link">Aliester</a>
       <span class="navbar-breadcrumb-sep">/</span>
       <span class="navbar-breadcrumb-current">${names[path] || 'Dashboard'}</span>
     `;
@@ -186,6 +186,102 @@ function changeFontSize(size) {
   localStorage.setItem('aliester-fontSize', size);
 }
 
+// --- Sidebar Collapse ---
+function toggleSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  sidebar.classList.toggle('collapsed');
+  localStorage.setItem('aliester-sidebar-collapsed', sidebar.classList.contains('collapsed'));
+}
+
+function loadSidebarState() {
+  const collapsed = localStorage.getItem('aliester-sidebar-collapsed') === 'true';
+  const sidebar = document.querySelector('.sidebar');
+  if (sidebar && collapsed) {
+    sidebar.classList.add('collapsed');
+  }
+}
+
+// --- Drag & Drop Modules ---
+let draggedItem = null;
+
+function initModuleDragDrop() {
+  const sections = document.querySelectorAll('.sidebar-section');
+  const modulesSection = sections[1]; // Second section = "Mis Modulos"
+  if (!modulesSection) return;
+
+  const items = modulesSection.querySelectorAll('.sidebar-item');
+  items.forEach(item => {
+    item.setAttribute('draggable', 'true');
+
+    item.addEventListener('dragstart', (e) => {
+      draggedItem = item;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', item.dataset.route);
+    });
+
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      modulesSection.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('drag-over'));
+      draggedItem = null;
+      saveModuleOrder();
+    });
+
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (draggedItem === item) return;
+      e.dataTransfer.dropEffect = 'move';
+      item.classList.add('drag-over');
+    });
+
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('drag-over');
+    });
+
+    item.addEventListener('drop', (e) => {
+      e.preventDefault();
+      item.classList.remove('drag-over');
+      if (draggedItem === item || !draggedItem) return;
+
+      const allItems = [...modulesSection.querySelectorAll('.sidebar-item')];
+      const draggedIdx = allItems.indexOf(draggedItem);
+      const droppedIdx = allItems.indexOf(item);
+
+      if (draggedIdx < droppedIdx) {
+        modulesSection.insertBefore(draggedItem, item.nextSibling);
+      } else {
+        modulesSection.insertBefore(draggedItem, item);
+      }
+    });
+  });
+
+  loadModuleOrder();
+}
+
+function saveModuleOrder() {
+  const sections = document.querySelectorAll('.sidebar-section');
+  const modulesSection = sections[1];
+  if (!modulesSection) return;
+
+  const order = [...modulesSection.querySelectorAll('.sidebar-item')].map(i => i.dataset.route);
+  localStorage.setItem('aliester-module-order', JSON.stringify(order));
+}
+
+function loadModuleOrder() {
+  const saved = localStorage.getItem('aliester-module-order');
+  if (!saved) return;
+
+  const order = JSON.parse(saved);
+  const sections = document.querySelectorAll('.sidebar-section');
+  const modulesSection = sections[1];
+  if (!modulesSection) return;
+
+  order.forEach(route => {
+    const item = modulesSection.querySelector(`[data-route="${route}"]`);
+    if (item) modulesSection.appendChild(item);
+  });
+}
+
 // --- Load Saved Preferences ---
 function loadPreferences() {
   // Dark mode
@@ -219,6 +315,9 @@ function loadPreferences() {
     const select = document.getElementById('font-size-select');
     if (select) select.value = savedFontSize;
   }
+
+  // Sidebar collapsed
+  loadSidebarState();
 }
 
 // Init app — gated on auth
@@ -250,6 +349,8 @@ window.addEventListener('auth-ready', async (e) => {
       await loadAllData();
     }
     Router.init();
+    if (typeof aliInit === 'function') aliInit();
+    initModuleDragDrop();
   } else {
     showAuthScreen();
   }

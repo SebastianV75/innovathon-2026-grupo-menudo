@@ -22,6 +22,7 @@
   height: var(--navbar-height);
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 var(--space-md);
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
@@ -30,6 +31,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  text-decoration: none;
+  color: inherit;
+}
+
+.sidebar-logo:hover {
+  opacity: 0.9;
 }
 
 .sidebar-logo-icon {
@@ -74,6 +81,94 @@
   letter-spacing: 0.08em;
   padding: var(--space-xs) var(--space-sm);
   margin-bottom: 2px;
+}
+
+.sidebar-toggle {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.sidebar-toggle:hover {
+  background: var(--bg-sidebar-hover);
+  color: rgba(255,255,255,0.9);
+}
+
+.sidebar.collapsed .sidebar-toggle svg {
+  transform: rotate(180deg);
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  margin: 0 auto;
+}
+
+/* Collapsed Sidebar */
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed);
+}
+
+.sidebar.collapsed .sidebar-logo-text,
+.sidebar.collapsed .sidebar-item-text,
+.sidebar.collapsed .sidebar-section-title,
+.sidebar.collapsed .sidebar-item-badge,
+.sidebar.collapsed .sidebar-user-info {
+  display: none;
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  display: flex;
+  margin: 0 auto;
+}
+
+.sidebar.collapsed .sidebar-item {
+  justify-content: center;
+  padding: 7px 0;
+  gap: 0;
+}
+
+.sidebar.collapsed .sidebar-item-icon {
+  margin: 0 auto;
+}
+
+.sidebar.collapsed .sidebar-item.active::before {
+  left: -4px;
+}
+
+.sidebar.collapsed .sidebar-user {
+  grid-template-columns: 32px;
+  justify-items: center;
+}
+
+.sidebar.collapsed .sidebar-user-name,
+.sidebar.collapsed .sidebar-user-role {
+  display: none;
+}
+
+/* Drag & Drop */
+.sidebar-item[draggable="true"] {
+  cursor: grab;
+}
+
+.sidebar-item[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.sidebar-item.dragging {
+  opacity: 0.4;
+  background: var(--bg-sidebar-hover);
+}
+
+.sidebar-item.drag-over {
+  border-top: 2px solid var(--oc-white);
 }
 
 .sidebar-item {
@@ -225,6 +320,16 @@
   gap: 6px;
   font-size: var(--text-sm);
   color: var(--text-secondary);
+}
+
+.navbar-breadcrumb-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.navbar-breadcrumb-link:hover {
+  color: var(--text-primary);
 }
 
 .navbar-breadcrumb-sep {
