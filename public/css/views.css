@@ -747,6 +747,69 @@
   gap: var(--space-xs);
 }
 
+.cuenta-card-menu {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.cuenta-card-menu:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.cuenta-card-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 140px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.cuenta-card-dropdown.open {
+  display: block;
+}
+
+.cuenta-card-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.cuenta-card-dropdown button:hover {
+  background: var(--bg-active);
+}
+
+.cuenta-card-dropdown button:last-child {
+  color: var(--error);
+}
+
+.cuenta-card-dropdown button:last-child:hover {
+  background: var(--error-light, rgba(155,59,59,0.1));
+}
+
 /* Cuenta Detalle */
 .cuenta-detalle {
   background: var(--bg-secondary);

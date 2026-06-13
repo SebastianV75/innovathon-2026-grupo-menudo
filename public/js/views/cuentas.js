@@ -4,6 +4,7 @@
 
 let cuentasFilter = 'todas';
 let cuentaDetalleId = null;
+let editingCuentaId = null;
 
 function getCuentaById(id) {
   if (!id) return null;
@@ -108,8 +109,18 @@ function renderCuentasGrid() {
           <div class="cuenta-card" onclick="cuentaDetalleId='${cuenta.id}';renderCuentas()" style="border-left:4px solid ${cuenta.color}">
             <div class="cuenta-card-header">
               <div class="cuenta-card-banco">${cuenta.banco}</div>
-              <div class="cuenta-card-tipo">
-                <span class="badge ${getTipoBadgeClass(cuenta.tipo)}">${getTipoLabel(cuenta.tipo)}</span>
+              <div class="cuenta-card-menu" onclick="event.stopPropagation();toggleCuentaMenu('${cuenta.id}')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                <div class="cuenta-card-dropdown" id="cuenta-menu-${cuenta.id}">
+                  <button onclick="event.stopPropagation();openEditarCuentaModal('${cuenta.id}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Editar
+                  </button>
+                  <button onclick="event.stopPropagation();confirmDeleteCuenta('${cuenta.id}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    Eliminar
+                  </button>
+                </div>
               </div>
             </div>
             <div class="cuenta-card-saldo">${formatCurrency(cuenta.saldo)}</div>
@@ -180,11 +191,21 @@ function renderCuentaDetalle(cuentaId) {
       </div>
 
       <!-- Boton volver -->
-      <div style="padding:var(--space-md);border-top:1px solid var(--border-subtle)">
+      <div style="padding:var(--space-md);border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center">
         <button class="btn btn-secondary btn-sm" onclick="cuentaDetalleId=null;renderCuentas()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
           Volver a cuentas
         </button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="openEditarCuentaModal('${cuenta.id}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Editar
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDeleteCuenta('${cuenta.id}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Eliminar
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -261,35 +282,47 @@ function renderCuentaSuscripciones(subs) {
 }
 
 function openNuevaCuentaModal() {
+  editingCuentaId = null;
+  openCuentaModal('Nueva Cuenta', {}, 'Crear');
+}
+
+function openEditarCuentaModal(id) {
+  const cuenta = getCuentaById(id);
+  if (!cuenta) return;
+  editingCuentaId = id;
+  openCuentaModal('Editar Cuenta', cuenta, 'Guardar');
+}
+
+function openCuentaModal(title, data, submitLabel) {
   const body = `
     <div class="form-group full">
       <div class="form-field">
         <label>Banco</label>
         <select class="input" id="cuenta-banco">
-          <option value="BBVA">BBVA</option>
-          <option value="Nu Bank">Nu Bank</option>
-          <option value="Banorte">Banorte</option>
-          <option value="Banamex">Banamex</option>
-          <option value="Santander">Santander</option>
-          <option value="HSBC">HSBC</option>
-          <option value="Inbursa">Inbursa</option>
-          <option value="Hey Banco">Hey Banco</option>
-          <option value="Klar">Klar</option>
-          <option value="Otro">Otro</option>
+          <option value="BBVA" ${data.banco === 'BBVA' ? 'selected' : ''}>BBVA</option>
+          <option value="Nu Bank" ${data.banco === 'Nu Bank' ? 'selected' : ''}>Nu Bank</option>
+          <option value="Banorte" ${data.banco === 'Banorte' ? 'selected' : ''}>Banorte</option>
+          <option value="Banamex" ${data.banco === 'Banamex' ? 'selected' : ''}>Banamex</option>
+          <option value="Santander" ${data.banco === 'Santander' ? 'selected' : ''}>Santander</option>
+          <option value="HSBC" ${data.banco === 'HSBC' ? 'selected' : ''}>HSBC</option>
+          <option value="Inbursa" ${data.banco === 'Inbursa' ? 'selected' : ''}>Inbursa</option>
+          <option value="Hey Banco" ${data.banco === 'Hey Banco' ? 'selected' : ''}>Hey Banco</option>
+          <option value="Klar" ${data.banco === 'Klar' ? 'selected' : ''}>Klar</option>
+          <option value="Otro" ${data.banco === 'Otro' ? 'selected' : ''}>Otro</option>
         </select>
       </div>
     </div>
     <div class="form-group">
       <div class="form-field">
         <label>Terminacion (4 digitos)</label>
-        <input type="text" class="input" id="cuenta-terminacion" placeholder="1234" maxlength="4" pattern="[0-9]{4}">
+        <input type="text" class="input" id="cuenta-terminacion" placeholder="1234" maxlength="4" pattern="[0-9]{4}" value="${data.terminacion || ''}">
       </div>
       <div class="form-field">
         <label>Red</label>
         <select class="input" id="cuenta-red">
-          <option value="visa">Visa</option>
-          <option value="mastercard">Mastercard</option>
-          <option value="amex">American Express</option>
+          <option value="visa" ${data.red === 'visa' ? 'selected' : ''}>Visa</option>
+          <option value="mastercard" ${data.red === 'mastercard' ? 'selected' : ''}>Mastercard</option>
+          <option value="amex" ${data.red === 'amex' ? 'selected' : ''}>American Express</option>
         </select>
       </div>
     </div>
@@ -297,24 +330,24 @@ function openNuevaCuentaModal() {
       <div class="form-field">
         <label>Tipo de cuenta</label>
         <select class="input" id="cuenta-tipo">
-          <option value="debito">Debito</option>
-          <option value="credito">Credito</option>
-          <option value="ahorro">Ahorro</option>
+          <option value="debito" ${data.tipo === 'debito' ? 'selected' : ''}>Debito</option>
+          <option value="credito" ${data.tipo === 'credito' ? 'selected' : ''}>Credito</option>
+          <option value="ahorro" ${data.tipo === 'ahorro' ? 'selected' : ''}>Ahorro</option>
         </select>
       </div>
       <div class="form-field">
         <label>Saldo actual</label>
-        <input type="number" class="input" id="cuenta-saldo" placeholder="0.00">
+        <input type="number" class="input" id="cuenta-saldo" placeholder="0.00" value="${data.saldo !== undefined ? data.saldo : ''}">
       </div>
     </div>
   `;
 
   const footer = `
     <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-primary" onclick="saveCuenta()">Crear</button>
+    <button class="btn btn-primary" onclick="saveCuenta()">${submitLabel}</button>
   `;
 
-  openModal('Nueva Cuenta', body, footer);
+  openModal(title, body, footer);
 }
 
 async function saveCuenta() {
@@ -342,23 +375,82 @@ async function saveCuenta() {
     'Otro': '#888888'
   };
 
-  const result = await createCuenta({
-    banco,
-    terminacion,
-    tipo,
-    red,
-    saldo,
-    color: bancoColors[banco] || '#888888'
-  });
+  const color = bancoColors[banco] || '#888888';
 
-  if (result) {
-    closeModal();
-    renderCuentas();
-    showToast('Cuenta creada');
+  if (editingCuentaId) {
+    const result = await updateCuenta(editingCuentaId, {
+      banco,
+      terminacion,
+      tipo,
+      red,
+      saldo,
+      color
+    });
+
+    if (result) {
+      closeModal();
+      renderCuentas();
+      showToast('Cuenta actualizada');
+    }
+  } else {
+    const result = await createCuenta({
+      banco,
+      terminacion,
+      tipo,
+      red,
+      saldo,
+      color
+    });
+
+    if (result) {
+      closeModal();
+      renderCuentas();
+      showToast('Cuenta creada');
+    }
   }
 }
 
+function toggleCuentaMenu(id) {
+  document.querySelectorAll('.cuenta-card-dropdown.open').forEach(el => {
+    if (el.id !== `cuenta-menu-${id}`) el.classList.remove('open');
+  });
+  const menu = document.getElementById(`cuenta-menu-${id}`);
+  if (menu) menu.classList.toggle('open');
+}
+
+document.addEventListener('click', () => {
+  document.querySelectorAll('.cuenta-card-dropdown.open').forEach(el => el.classList.remove('open'));
+});
+
+function confirmDeleteCuenta(id) {
+  const cuenta = getCuentaById(id);
+  if (!cuenta) return;
+
+  const subsCount = suscripcionesData.filter(s => s.cuentaId === id).length;
+  const transCount = finanzasData.filter(f => f.cuentaId === id).length;
+
+  let warningText = '';
+  if (subsCount > 0 || transCount > 0) {
+    warningText = `<div style="margin-top:12px;padding:10px;background:var(--warning-light);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--warning)">
+      Las suscripciones (${subsCount}) y transacciones (${transCount}) asociadas quedaran sin cuenta vinculada.
+    </div>`;
+  }
+
+  const body = `
+    <p style="margin:0">Esta accion eliminara la cuenta <strong>${cuenta.banco} **** ${cuenta.terminacion}</strong>.</p>
+    ${warningText}
+  `;
+
+  const footer = `
+    <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-danger" onclick="deleteCuenta('${id}')">Eliminar</button>
+  `;
+
+  openModal('Eliminar cuenta', body, footer);
+}
+
 async function deleteCuenta(id) {
+  closeModal();
   const ok = await deleteCuentaRemote(id);
   if (ok) {
     cuentaDetalleId = null;
