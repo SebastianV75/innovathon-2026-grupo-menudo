@@ -1,13 +1,6 @@
 /* Aliester - Calendario View */
 
-const eventosData = [
-  { id: 1, titulo: 'Reunion de trabajo', fecha: '2026-06-14', hora: '10:00', color: 'blue' },
-  { id: 2, titulo: 'Dentista', fecha: '2026-06-15', hora: '15:00', color: 'green' },
-  { id: 3, titulo: 'Cumpleaños Ana', fecha: '2026-06-17', hora: '00:00', color: 'orange' },
-  { id: 4, titulo: 'Deadline proyecto', fecha: '2026-06-20', hora: '12:00', color: 'red' },
-  { id: 5, titulo: 'Gimnasio', fecha: '2026-06-14', hora: '07:00', color: 'green' },
-  { id: 6, titulo: 'Clase de ingles', fecha: '2026-06-16', hora: '18:00', color: 'blue' },
-];
+// eventosData is now loaded from InsForge via store.js
 
 let calendarioMonth = 5; // June (0-indexed)
 let calendarioYear = 2026;
@@ -99,7 +92,7 @@ function renderCalendario() {
                   <div style="font-size:var(--text-sm);font-weight:500">${e.titulo}</div>
                   <div style="font-size:var(--text-xs);color:var(--text-secondary)">${formatDate(e.fecha)} ${e.hora !== '00:00' ? e.hora : ''}</div>
                 </div>
-                <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteEvento(${e.id})">
+                <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteEvento('${e.id}')">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
               </div>
@@ -191,7 +184,7 @@ function openEventoModal(dateStr) {
   openModal('Eventos del dia', body, footer);
 }
 
-function saveEvento() {
+async function saveEvento() {
   const titulo = document.getElementById('evento-titulo').value;
   const fecha = document.getElementById('evento-fecha').value;
   const hora = document.getElementById('evento-hora').value;
@@ -202,23 +195,17 @@ function saveEvento() {
     return;
   }
 
-  eventosData.push({
-    id: Date.now(),
-    titulo,
-    fecha,
-    hora,
-    color
-  });
-
-  closeModal();
-  renderCalendario();
-  showToast('Evento creado');
+  const result = await createEvent({ titulo, fecha, hora, color });
+  if (result) {
+    closeModal();
+    renderCalendario();
+    showToast('Evento creado');
+  }
 }
 
-function deleteEvento(id) {
-  const idx = eventosData.findIndex(e => e.id === id);
-  if (idx !== -1) {
-    eventosData.splice(idx, 1);
+async function deleteEvento(id) {
+  const ok = await deleteEventRemote(id);
+  if (ok) {
     renderCalendario();
     showToast('Evento eliminado');
   }

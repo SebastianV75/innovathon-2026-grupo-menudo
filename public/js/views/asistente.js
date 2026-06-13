@@ -64,7 +64,7 @@ function collectLifeSnapshot() {
     .sort((a, b) => a.fechaCorte - b.fechaCorte);
 
   const notasRecientes = [...notasData]
-    .sort((a, b) => b.fecha.localeCompare(a.fecha))
+    .sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')))
     .slice(0, 3);
 
   return {

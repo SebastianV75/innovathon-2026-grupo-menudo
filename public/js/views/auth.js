@@ -408,8 +408,11 @@ async function handleLogout() {
 
 /* ── Auth Success Callback ──────────────────────── */
 
-function onAuthSuccess(user) {
+async function onAuthSuccess(user) {
   showAppShell(user);
+  if (typeof loadAllData === 'function' && !isDataLoaded()) {
+    await loadAllData();
+  }
   // Initialize router after auth
   if (typeof Router !== 'undefined') {
     Router.init();

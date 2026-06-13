@@ -1,13 +1,6 @@
 /* Aliester - Suscripciones View */
 
-const suscripcionesData = [
-  { id: 1, servicio: 'Netflix', descripcion: 'Streaming de peliculas y series', costo: 199, estado: 'activa', fechaInicio: '2024-03-15', fechaCorte: 15, cuentaId: 1 },
-  { id: 2, servicio: 'Spotify', descripcion: 'Musica y podcasts sin anuncios', costo: 129, estado: 'activa', fechaInicio: '2023-01-10', fechaCorte: 10, cuentaId: 1 },
-  { id: 3, servicio: 'Adobe Creative Cloud', descripcion: 'Suite de diseno: Photoshop, Illustrator, Premiere', costo: 599, estado: 'activa', fechaInicio: '2025-06-01', fechaCorte: 1, cuentaId: 2 },
-  { id: 4, servicio: 'Microsoft 365', descripcion: 'Office completo + 1TB OneDrive', costo: 179, estado: 'activa', fechaInicio: '2024-09-20', fechaCorte: 20, cuentaId: 1 },
-  { id: 5, servicio: 'Disney+', descripcion: 'Streaming Disney, Pixar, Marvel, Star Wars', costo: 139, estado: 'cancelada', fechaInicio: '2023-11-01', fechaCorte: 1, cuentaId: 1, fechaCancelacion: '2025-12-01', motivoCancelacion: 'Contenido limitado, poco uso' },
-  { id: 6, servicio: 'HBO Max', descripcion: 'Streaming HBO y contenido Warner', costo: 159, estado: 'cancelada', fechaInicio: '2024-01-15', fechaCorte: 15, cuentaId: 2, fechaCancelacion: '2025-08-15', motivoCancelacion: 'Subio de precio, poco contenido nuevo' },
-];
+// suscripcionesData is now loaded from InsForge via store.js
 
 let suscripcionesTab = 'activas';
 
@@ -107,10 +100,10 @@ function renderSuscripciones() {
                 <td>${getCuentaBadge(cuenta)}</td>
                 <td class="text-right">
                   ${suscripcionesTab === 'activas' 
-                    ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="cancelarSuscripcion(${s.id})" title="Cancelar">
+                    ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="cancelarSuscripcion('${s.id}')" title="Cancelar">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                       </button>`
-                    : `<button class="btn btn-ghost btn-icon btn-sm" onclick="reactivarSuscripcion(${s.id})" title="Reactivar">
+                    : `<button class="btn btn-ghost btn-icon btn-sm" onclick="reactivarSuscripcion('${s.id}')" title="Reactivar">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                       </button>`
                   }
@@ -178,33 +171,33 @@ function openNuevaSuscripcionModal() {
   openModal('Nueva Suscripcion', body, footer);
 }
 
-function saveSuscripcion() {
+async function saveSuscripcion() {
   const servicio = document.getElementById('sub-servicio').value;
   const descripcion = document.getElementById('sub-descripcion').value;
   const costo = parseFloat(document.getElementById('sub-costo').value) || 0;
   const fechaCorte = parseInt(document.getElementById('sub-corte').value) || 1;
   const fechaInicio = document.getElementById('sub-inicio').value;
-  const cuentaId = parseInt(document.getElementById('sub-cuenta').value) || null;
+  const cuentaId = document.getElementById('sub-cuenta').value || null;
 
   if (!servicio || !costo) {
     showToast('Completa servicio y costo', 'error');
     return;
   }
 
-  suscripcionesData.unshift({
-    id: Date.now(),
+  const result = await createSubscription({
     servicio,
     descripcion,
     costo,
-    estado: 'activa',
     fechaInicio,
     fechaCorte,
     cuentaId
   });
 
-  closeModal();
-  renderSuscripciones();
-  showToast('Suscripcion creada');
+  if (result) {
+    closeModal();
+    renderSuscripciones();
+    showToast('Suscripcion creada');
+  }
 }
 
 function cancelarSuscripcion(id) {
@@ -228,37 +221,43 @@ function cancelarSuscripcion(id) {
 
   const footer = `
     <button class="btn btn-secondary" onclick="closeModal()">Volver</button>
-    <button class="btn btn-danger" onclick="confirmarCancelacion(${id})">Cancelar suscripcion</button>
+    <button class="btn btn-danger" onclick="confirmarCancelacion('${id}')">Cancelar suscripcion</button>
   `;
 
   openModal('Cancelar Suscripcion', body, footer);
 }
 
-function confirmarCancelacion(id) {
+async function confirmarCancelacion(id) {
   const sub = suscripcionesData.find(s => s.id === id);
   if (!sub) return;
 
   const motivo = document.getElementById('sub-motivo').value || 'Sin motivo especificado';
-  sub.estado = 'cancelada';
-  sub.fechaCancelacion = new Date().toISOString().split('T')[0];
-  sub.motivoCancelacion = motivo;
 
-  closeModal();
-  renderSuscripciones();
-  showToast('Suscripcion cancelada');
+  const ok = await updateSubscription(id, {
+    estado: 'cancelada',
+    fecha_cancelacion: new Date().toISOString().split('T')[0],
+    motivo_cancelacion: motivo
+  });
+
+  if (ok) {
+    closeModal();
+    renderSuscripciones();
+    showToast('Suscripcion cancelada');
+  }
 }
 
-function reactivarSuscripcion(id) {
-  const sub = suscripcionesData.find(s => s.id === id);
-  if (!sub) return;
+async function reactivarSuscripcion(id) {
+  const ok = await updateSubscription(id, {
+    estado: 'activa',
+    fecha_inicio: new Date().toISOString().split('T')[0],
+    fecha_cancelacion: null,
+    motivo_cancelacion: null
+  });
 
-  sub.estado = 'activa';
-  delete sub.fechaCancelacion;
-  delete sub.motivoCancelacion;
-  sub.fechaInicio = new Date().toISOString().split('T')[0];
-
-  renderSuscripciones();
-  showToast('Suscripcion reactivada');
+  if (ok) {
+    renderSuscripciones();
+    showToast('Suscripcion reactivada');
+  }
 }
 
 Router.register('/suscripciones', renderSuscripciones);

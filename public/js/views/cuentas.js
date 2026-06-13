@@ -1,16 +1,13 @@
 /* Aliester - Cuentas View */
 
-const cuentasData = [
-  { id: 1, banco: 'BBVA', terminacion: '4521', tipo: 'debito', red: 'visa', saldo: 23450, color: '#004B87' },
-  { id: 2, banco: 'Nu Bank', terminacion: '7893', tipo: 'credito', red: 'mastercard', saldo: 15000, color: '#8B00FF' },
-  { id: 3, banco: 'Banorte', terminacion: '1234', tipo: 'ahorro', red: 'visa', saldo: 50000, color: '#E31837' },
-];
+// cuentasData is now loaded from InsForge via store.js
 
 let cuentasFilter = 'todas';
 let cuentaDetalleId = null;
 
 function getCuentaById(id) {
-  return cuentasData.find(c => c.id === id);
+  if (!id) return null;
+  return cuentasData.find(c => c.id === id || c.id === String(id));
 }
 
 function getCuentaBadge(cuenta) {
@@ -108,7 +105,7 @@ function renderCuentasGrid() {
         const subCount = suscripcionesData.filter(s => s.cuentaId === cuenta.id && s.estado === 'activa').length;
         const transCount = finanzasData.filter(f => f.cuentaId === cuenta.id).length;
         return `
-          <div class="cuenta-card" onclick="cuentaDetalleId=${cuenta.id};renderCuentas()" style="border-left:4px solid ${cuenta.color}">
+          <div class="cuenta-card" onclick="cuentaDetalleId='${cuenta.id}';renderCuentas()" style="border-left:4px solid ${cuenta.color}">
             <div class="cuenta-card-header">
               <div class="cuenta-card-banco">${cuenta.banco}</div>
               <div class="cuenta-card-tipo">
@@ -320,7 +317,7 @@ function openNuevaCuentaModal() {
   openModal('Nueva Cuenta', body, footer);
 }
 
-function saveCuenta() {
+async function saveCuenta() {
   const banco = document.getElementById('cuenta-banco').value;
   const terminacion = document.getElementById('cuenta-terminacion').value;
   const red = document.getElementById('cuenta-red').value;
@@ -345,8 +342,7 @@ function saveCuenta() {
     'Otro': '#888888'
   };
 
-  cuentasData.unshift({
-    id: Date.now(),
+  const result = await createCuenta({
     banco,
     terminacion,
     tipo,
@@ -355,23 +351,16 @@ function saveCuenta() {
     color: bancoColors[banco] || '#888888'
   });
 
-  closeModal();
-  renderCuentas();
-  showToast('Cuenta creada');
+  if (result) {
+    closeModal();
+    renderCuentas();
+    showToast('Cuenta creada');
+  }
 }
 
-function deleteCuenta(id) {
-  const idx = cuentasData.findIndex(c => c.id === id);
-  if (idx !== -1) {
-    // Desasociar suscripciones
-    suscripcionesData.forEach(s => {
-      if (s.cuentaId === id) s.cuentaId = null;
-    });
-    // Desasociar finanzas
-    finanzasData.forEach(f => {
-      if (f.cuentaId === id) f.cuentaId = null;
-    });
-    cuentasData.splice(idx, 1);
+async function deleteCuenta(id) {
+  const ok = await deleteCuentaRemote(id);
+  if (ok) {
     cuentaDetalleId = null;
     renderCuentas();
     showToast('Cuenta eliminada');

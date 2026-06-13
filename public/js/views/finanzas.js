@@ -1,15 +1,6 @@
 /* Aliester - Finanzas View */
 
-const finanzasData = [
-  { id: 1, tipo: 'gasto', concepto: 'Supermercado', categoria: 'Alimentacion', monto: 1250, fecha: '2026-06-10', cuentaId: 1 },
-  { id: 2, tipo: 'ingreso', concepto: 'Salario', categoria: 'Trabajo', monto: 25000, fecha: '2026-06-01', cuentaId: 1 },
-  { id: 3, tipo: 'gasto', concepto: 'Netflix', categoria: 'Servicios', monto: 199, fecha: '2026-06-05', cuentaId: 1 },
-  { id: 4, tipo: 'gasto', concepto: 'Gasolina', categoria: 'Transporte', monto: 800, fecha: '2026-06-08', cuentaId: 1 },
-  { id: 5, tipo: 'gasto', concepto: 'Cafe', categoria: 'Alimentacion', monto: 85, fecha: '2026-06-12', cuentaId: null },
-  { id: 6, tipo: 'ingreso', concepto: 'Freelance', categoria: 'Trabajo', monto: 5000, fecha: '2026-06-10', cuentaId: 2 },
-  { id: 7, tipo: 'gasto', concepto: 'Spotify', categoria: 'Servicios', monto: 129, fecha: '2026-06-03', cuentaId: 1 },
-  { id: 8, tipo: 'gasto', concepto: 'Uber', categoria: 'Transporte', monto: 320, fecha: '2026-06-11', cuentaId: 2 },
-];
+// finanzasData is now loaded from InsForge via store.js
 
 let finanzasView = 'lista';
 let finanzasFilterCuenta = 'todas';
@@ -28,8 +19,7 @@ function getFilteredFinanzas() {
   let data = [...finanzasData];
   
   if (finanzasFilterCuenta !== 'todas') {
-    const cuentaId = parseInt(finanzasFilterCuenta);
-    data = data.filter(f => f.cuentaId === cuentaId);
+    data = data.filter(f => f.cuentaId === finanzasFilterCuenta);
   }
   
   if (finanzasFilterTipo !== 'todos') {
@@ -270,7 +260,7 @@ function renderFinanzasCuentas(data) {
       </div>
       <div class="card-body">
         ${Object.entries(cuentasTotals).map(([cuentaId, total]) => {
-          const cuenta = cuentaId === 'sin-cuenta' ? null : getCuentaById(parseInt(cuentaId));
+          const cuenta = cuentaId === 'sin-cuenta' ? null : getCuentaById(cuentaId);
           const balance = total.ingresos - total.gastos;
           return `
             <div style="display:flex;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--border-subtle)">
@@ -358,24 +348,23 @@ function openFinanzasModal() {
   openModal('Nueva Transaccion', body, footer);
 }
 
-function saveFinanzas() {
+async function saveFinanzas() {
   const tipo = document.getElementById('fin-tipo').value;
   const monto = parseFloat(document.getElementById('fin-monto').value) || 0;
   const concepto = document.getElementById('fin-concepto').value;
   const categoria = document.getElementById('fin-categoria').value;
   const fecha = document.getElementById('fin-fecha').value;
   const cuentaIdStr = document.getElementById('fin-cuenta').value;
-  const cuentaId = cuentaIdStr ? parseInt(cuentaIdStr) : null;
+  const cuentaId = cuentaIdStr ? cuentaIdStr : null;
   const tareaIdStr = document.getElementById('fin-tarea').value;
-  const tareaId = tareaIdStr ? parseInt(tareaIdStr) : null;
+  const tareaId = tareaIdStr ? tareaIdStr : null;
 
   if (!concepto || !monto) {
     showToast('Completa todos los campos', 'error');
     return;
   }
 
-  finanzasData.unshift({
-    id: Date.now(),
+  const result = await createTransaction({
     tipo,
     concepto,
     categoria,
@@ -385,21 +374,11 @@ function saveFinanzas() {
     tareaId
   });
 
-  // Update account balance automatically
-  if (cuentaId) {
-    const cuenta = getCuentaById(cuentaId);
-    if (cuenta) {
-      if (tipo === 'ingreso') {
-        cuenta.saldo += monto;
-      } else {
-        cuenta.saldo -= monto;
-      }
-    }
+  if (result) {
+    closeModal();
+    renderFinanzas();
+    showToast(`Transaccion guardada${cuentaId ? '. Saldo actualizado.' : ''}`);
   }
-
-  closeModal();
-  renderFinanzas();
-  showToast(`Transaccion guardada${cuentaId ? '. Saldo actualizado.' : ''}`);
 }
 
 Router.register('/finanzas', renderFinanzas);

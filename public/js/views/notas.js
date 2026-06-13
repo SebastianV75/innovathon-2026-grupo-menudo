@@ -1,13 +1,6 @@
 /* Aliester - Notas View (with Datepicker & Calendar Sync) */
 
-const notasData = [
-  { id: 1, titulo: 'Ideas para el proyecto', contenido: '1. Dashboard con metricas\n2. Sistema de notificaciones\n3. Exportar datos a CSV\n4. Dark mode', fecha: '2026-06-10' },
-  { id: 2, titulo: 'Recetas de cocina', contenido: 'Tacos de pollo:\n- 500g pechuga de pollo\n- Tortillas de maiz\n- Cilantro, cebolla, limon\n- Salsa verde', fecha: '2026-06-08' },
-  { id: 3, titulo: 'Libros por leer', contenido: '1. Atomic Habits - James Clear\n2. Deep Work - Cal Newport\n3. The Pragmatic Programmer\n4. Clean Code - Robert Martin', fecha: '2026-06-05' },
-  { id: 4, titulo: 'Contrasenas importantes', contenido: 'Banco: ****\nEmail principal: ****\nNetflix: ****', fecha: '2026-06-01' },
-  { id: 5, titulo: 'Meta de ahorro 2026', contenido: 'Objetivo: $100,000 MXN\nActual: $45,230\nFalta: $54,770\n\nEstrategia:\n- Ahorrar 30% de cada quincena\n- Reducir gastos en entretenimiento\n- Vender cosas que no uso', fecha: '2026-06-03' },
-  { id: 6, titulo: 'Plan de ejercicio', contenido: 'Lunes: Pecho y triceps\nMartes: Espalda y biceps\nMiercoles: Piernas\nJueves: Descanso\nViernes: Hombros y trapecios\nSabado: Cardio', fecha: '2026-06-02' },
-];
+// notasData is now loaded from InsForge via store.js
 
 let notasSearch = '';
 let activeDatepicker = null;
@@ -238,7 +231,7 @@ function renderNotas() {
 
     <div class="notes-grid">
       ${filtered.map(n => `
-        <div class="note-card" onclick="openNotaDetail(${n.id})">
+        <div class="note-card" onclick="openNotaDetail('${n.id}')">
           <div class="note-card-title">${n.titulo}</div>
           <div class="note-card-content">${n.contenido}</div>
           <div class="note-card-footer">
@@ -294,7 +287,7 @@ function openNuevaNotaModal() {
   openModal('Nueva Nota', body, footer);
 }
 
-function saveNota() {
+async function saveNota() {
   const titulo = document.getElementById('nota-titulo').value;
   const contenido = document.getElementById('nota-contenido').value;
   const fecha = document.getElementById('nota-nota-fecha').value;
@@ -304,29 +297,27 @@ function saveNota() {
     return;
   }
 
-  const newNota = {
-    id: Date.now(),
+  const result = await createNote({
     titulo,
     contenido,
     fecha: fecha || new Date().toISOString().split('T')[0]
-  };
+  });
 
-  notasData.unshift(newNota);
+  if (result) {
+    // Sync with calendar
+    if (fecha) {
+      await createEvent({
+        titulo: `[Nota] ${titulo}`,
+        fecha: fecha,
+        hora: '00:00',
+        color: 'blue'
+      });
+    }
 
-  // Sync with calendar
-  if (fecha) {
-    eventosData.push({
-      id: Date.now() + 1,
-      titulo: `[Nota] ${titulo}`,
-      fecha: fecha,
-      hora: '00:00',
-      color: 'blue'
-    });
+    closeModal();
+    renderNotas();
+    showToast(fecha ? 'Nota creada y agregada al calendario' : 'Nota creada');
   }
-
-  closeModal();
-  renderNotas();
-  showToast(fecha ? 'Nota creada y agregada al calendario' : 'Nota creada');
 }
 
 function openNotaDetail(id) {
@@ -358,60 +349,63 @@ function openNotaDetail(id) {
   `;
 
   const footer = `
-    <button class="btn btn-danger btn-sm" onclick="deleteNota(${id})">Eliminar</button>
+    <button class="btn btn-danger btn-sm" onclick="deleteNota('${id}')">Eliminar</button>
     <div style="flex:1"></div>
     <button class="btn btn-secondary" onclick="closeModal()">Cerrar</button>
-    <button class="btn btn-primary" onclick="updateNota(${id})">Guardar</button>
+    <button class="btn btn-primary" onclick="updateNota('${id}')">Guardar</button>
   `;
 
   openModal('Nota', body, footer);
 }
 
-function updateNota(id) {
+async function updateNota(id) {
   const nota = notasData.find(n => n.id === id);
   if (!nota) return;
 
-  const oldFecha = nota.fecha;
+  const newTitulo = document.getElementById('detail-titulo').value;
+  const newContenido = document.getElementById('detail-contenido').value;
   const newFecha = document.getElementById('detail-nota-fecha').value;
 
-  nota.titulo = document.getElementById('detail-titulo').value;
-  nota.contenido = document.getElementById('detail-contenido').value;
-  nota.fecha = newFecha;
+  const ok = await updateNote(id, {
+    titulo: newTitulo,
+    contenido: newContenido,
+    fecha: newFecha
+  });
 
-  // Update calendar event
-  const existingEventIdx = eventosData.findIndex(e => e.titulo === `[Nota] ${nota.titulo}` || e.titulo.startsWith(`[Nota] ${nota.titulo}`));
-  if (existingEventIdx !== -1) {
-    eventosData.splice(existingEventIdx, 1);
+  if (ok) {
+    // Update calendar event
+    const existingEvent = eventosData.find(e => e.titulo === `[Nota] ${nota.titulo}` || e.titulo.startsWith(`[Nota] ${nota.titulo}`));
+    if (existingEvent) {
+      await deleteEventRemote(existingEvent.id);
+    }
+
+    if (newFecha) {
+      await createEvent({
+        titulo: `[Nota] ${newTitulo}`,
+        fecha: newFecha,
+        hora: '00:00',
+        color: 'blue'
+      });
+    }
+
+    closeModal();
+    renderNotas();
+    showToast('Nota actualizada');
   }
-
-  if (newFecha) {
-    eventosData.push({
-      id: Date.now(),
-      titulo: `[Nota] ${nota.titulo}`,
-      fecha: newFecha,
-      hora: '00:00',
-      color: 'blue'
-    });
-  }
-
-  closeModal();
-  renderNotas();
-  showToast('Nota actualizada');
 }
 
-function deleteNota(id) {
+async function deleteNota(id) {
   const nota = notasData.find(n => n.id === id);
   if (nota) {
     // Remove calendar event
-    const eventIdx = eventosData.findIndex(e => e.titulo === `[Nota] ${nota.titulo}` || e.titulo.startsWith(`[Nota] ${nota.titulo}`));
-    if (eventIdx !== -1) {
-      eventosData.splice(eventIdx, 1);
+    const event = eventosData.find(e => e.titulo === `[Nota] ${nota.titulo}` || e.titulo.startsWith(`[Nota] ${nota.titulo}`));
+    if (event) {
+      await deleteEventRemote(event.id);
     }
   }
 
-  const idx = notasData.findIndex(n => n.id === id);
-  if (idx !== -1) {
-    notasData.splice(idx, 1);
+  const ok = await deleteNoteRemote(id);
+  if (ok) {
     closeModal();
     renderNotas();
     showToast('Nota eliminada');
