@@ -15,6 +15,7 @@ window.proyectosData = [];
 window.eventosData = [];
 window.notasData = [];
 window.suscripcionesData = [];
+window.taskAttachmentsData = [];
 
 // Set to true once we detect the events.descripcion column exists (see loadAllData).
 // While false, event writes omit descripcion so creation/edit never breaks.
@@ -32,7 +33,7 @@ async function loadAllData() {
   _dataLoading = true;
 
   try {
-    const [accounts, transactions, projects, tasks, events, notes, subs, eventsProbe] = await Promise.all([
+    const [accounts, transactions, projects, tasks, events, notes, subs, attachments, eventsProbe] = await Promise.all([
       db().from('accounts').select().order('created_at', { ascending: false }),
       db().from('transactions').select().order('fecha', { ascending: false }),
       db().from('projects').select().order('created_at', { ascending: false }),
@@ -40,6 +41,7 @@ async function loadAllData() {
       db().from('events').select().order('fecha', { ascending: true }),
       db().from('notes').select().order('created_at', { ascending: false }),
       db().from('subscriptions').select().order('created_at', { ascending: false }),
+      db().from('task_attachments').select().order('created_at', { ascending: false }),
       // Feature-detect the optional events.descripcion column (errors if absent).
       db().from('events').select('descripcion').limit(1),
     ]);
@@ -51,6 +53,7 @@ async function loadAllData() {
     window.eventosData = (events.data || []).map(mapEvent);
     window.notasData = (notes.data || []).map(mapNote);
     window.suscripcionesData = (subs.data || []).map(mapSubscription);
+    window.taskAttachmentsData = (attachments.data || []).map(mapTaskAttachment);
 
     // Build projects with nested tasks
     const projectsList = (projects.data || []).map(mapProject);
@@ -114,6 +117,7 @@ function mapTask(r) {
     etapaId: Number.isNaN(etapaId) ? (r.estado === 'completado' ? 6 : r.estado === 'en-progreso' ? 4 : 1) : etapaId,
     prioridad: r.prioridad,
     fechaTerminado: r.fecha_terminado || null,
+    fecha_terminado: r.fecha_terminado || null,
   };
 }
 
@@ -153,6 +157,19 @@ function mapSubscription(r) {
     cuentaId: r.account_id,
     fechaCancelacion: r.fecha_cancelacion,
     motivoCancelacion: r.motivo_cancelacion,
+  };
+}
+
+function mapTaskAttachment(r) {
+  return {
+    id: r.id,
+    task_id: r.task_id,
+    file_name: r.file_name,
+    file_size: r.file_size,
+    mime_type: r.mime_type,
+    storage_key: r.storage_key,
+    storage_url: r.storage_url,
+    created_at: r.created_at,
   };
 }
 
@@ -281,12 +298,51 @@ async function updateTask(id, updates) {
 }
 
 async function deleteTaskRemote(id) {
+  const taskAttachments = window.taskAttachmentsData.filter(a => a.task_id === id);
+  for (const attachment of taskAttachments) {
+    await window.insforge.storage.from('task-attachments').remove(attachment.storage_key);
+  }
+
   const { error } = await db().from('tasks').delete().eq('id', id);
   if (error) { showToast('Error al eliminar tarea', 'error'); return false; }
+  window.taskAttachmentsData = window.taskAttachmentsData.filter(a => a.task_id !== id);
   for (const p of window.proyectosData) {
     const idx = p.tareas.findIndex(t => t.id === id);
     if (idx !== -1) { p.tareas.splice(idx, 1); break; }
   }
+  return true;
+}
+
+async function createTaskAttachment(taskId, file) {
+  const key = `${taskId}/${Date.now()}-${file.name}`;
+  const { data: uploadData, error: uploadError } = await window.insforge.storage
+    .from('task-attachments')
+    .upload(key, file);
+  if (uploadError) { showToast('Error al subir archivo', 'error'); return null; }
+
+  const row = {
+    task_id: taskId,
+    file_name: file.name,
+    file_size: file.size,
+    mime_type: file.type || 'application/octet-stream',
+    storage_key: uploadData.key,
+    storage_url: uploadData.url,
+  };
+  const { data: inserted, error } = await db().from('task_attachments').insert([row]).select();
+  if (error) { showToast('Error al guardar adjunto', 'error'); return null; }
+  const mapped = mapTaskAttachment(inserted[0]);
+  window.taskAttachmentsData.unshift(mapped);
+  return mapped;
+}
+
+async function deleteTaskAttachment(id) {
+  const attachment = window.taskAttachmentsData.find(a => a.id === id);
+  if (attachment) {
+    await window.insforge.storage.from('task-attachments').remove(attachment.storage_key);
+  }
+  const { error } = await db().from('task_attachments').delete().eq('id', id);
+  if (error) { showToast('Error al eliminar adjunto', 'error'); return false; }
+  window.taskAttachmentsData = window.taskAttachmentsData.filter(a => a.id !== id);
   return true;
 }
 
