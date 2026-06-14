@@ -196,7 +196,58 @@ async function saveSuscripcion() {
   if (result) {
     closeModal();
     renderSuscripciones();
-    showToast('Suscripcion creada');
+    openConfirmGenerateExpenseModal(result);
+  }
+}
+
+function openConfirmGenerateExpenseModal(sub) {
+  const body = `
+    <div style="text-align:center;padding:var(--space-lg) 0">
+      <div style="font-size:var(--text-lg);font-weight:600;margin-bottom:var(--space-sm)">${sub.servicio}</div>
+      <div style="font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-lg)">
+        Deseas generar el gasto de <strong>${formatCurrency(sub.costo)}</strong> para este mes?
+      </div>
+      <div style="display:flex;gap:var(--space-md);justify-content:center">
+        <div style="text-align:center">
+          <div style="font-size:var(--text-xs);color:var(--text-secondary)">Cuenta</div>
+          <div style="font-size:var(--text-sm);font-weight:500">${sub.cuentaId ? (() => { const c = getCuentaById(sub.cuentaId); return c ? `${c.banco} **** ${c.terminacion}` : 'Sin cuenta'; })() : 'Sin cuenta'}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:var(--text-xs);color:var(--text-secondary)">Monto</div>
+          <div style="font-size:var(--text-sm);font-weight:600;color:var(--error)">${formatCurrency(sub.costo)}</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:var(--text-xs);color:var(--text-secondary)">Fecha</div>
+          <div style="font-size:var(--text-sm);font-weight:500">${formatDate(new Date().toISOString().split('T')[0])}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const footer = `
+    <button class="btn btn-secondary" onclick="closeModal()">Ahora no</button>
+    <button class="btn btn-primary" onclick="confirmGenerateExpense('${sub.id}')">Crear gasto</button>
+  `;
+
+  openModal('Generar primer gasto', body, footer);
+}
+
+async function confirmGenerateExpense(subId) {
+  const sub = suscripcionesData.find(s => s.id === subId);
+  if (!sub) return;
+
+  const result = await createTransaction({
+    tipo: 'gasto',
+    concepto: sub.servicio,
+    categoria: 'Servicios',
+    monto: sub.costo,
+    fecha: new Date().toISOString().split('T')[0],
+    cuentaId: sub.cuentaId,
+  });
+
+  if (result) {
+    closeModal();
+    showToast(`Gasto de ${formatCurrency(sub.costo)} creado para ${sub.servicio}`);
   }
 }
 

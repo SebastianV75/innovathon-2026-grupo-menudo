@@ -5,6 +5,49 @@
 let finanzasView = 'lista';
 let finanzasFilterCuenta = 'todas';
 let finanzasFilterTipo = 'todos';
+let finanzasPeriodo = 'mes';
+let _finanzasCatDebounce = null;
+
+const CATEGORIA_KEYWORDS = {
+  'Alimentacion': ['super', 'oxxo', 'walmart', 'soriana', 'chedraui', 'restaurant', 'cafe', 'comida', 'pizza', 'hamburguesa', 'starbucks', 'mcdonalds', 'ubereats', 'rappi', 'taqueria', 'tacos', 'sushi', 'polleria', 'carniceria', 'tortilleria', 'panaderia'],
+  'Transporte': ['uber', 'didy', 'gasolina', 'pemex', 'mobil', 'shell', 'estacionamiento', 'taxi', 'metro', 'camion', 'fuel', 'auto', 'mecanico', 'llanta', 'seguro auto'],
+  'Servicios': ['internet', 'telcel', 'att', 'telmex', 'izzi', 'totplay', 'luz', 'agua', 'gas', 'cfe', 'sky', 'dish'],
+  'Entretenimiento': ['netflix', 'spotify', 'disney', 'hbo', 'amazon prime', 'youtube', 'cinema', 'cine', 'boleto', 'playstation', 'xbox', 'steam', 'twitch', 'app store'],
+  'Salud': ['farmacia', 'doctor', 'hospital', 'dentista', 'medicina', 'clinica', 'laboratorio', 'seguro medico'],
+  'Educacion': ['curso', 'udemy', 'coursera', 'colegiatura', 'universidad', 'libro', 'escuela', 'tutor', 'platzi'],
+  'Hogar': ['renta', 'hipoteca', 'mantenimiento', 'limpieza', 'mueble', 'home depot', 'liverpool', 'walmart hogar'],
+  'Ropa': ['zara', 'h&m', 'nike', 'adidas', 'ropa', 'zapatos', 'shein'],
+  'Mascota': ['petco', 'pets', 'veterinario', 'mascota', 'croquetas'],
+  'Regalos': ['regalo', 'cumpleanos', 'navidad', 'dia del padre', 'dia de la madre'],
+  'Viajes': ['vuelo', 'avion', 'hotel', 'booking', 'airbnb', 'equipaje'],
+  'Inversiones': ['inversion', 'fondo', 'accion', 'cripto', 'btc', 'eth', 'broker'],
+  'Impuestos': ['impuesto', 'sat', 'factura', 'isr'],
+};
+
+async function guessCategory(concepto) {
+  if (!concepto || concepto.length < 3) return null;
+  const lower = concepto.toLowerCase();
+  for (const [cat, keywords] of Object.entries(CATEGORIA_KEYWORDS)) {
+    if (keywords.some(k => lower.includes(k))) return cat;
+  }
+  if (window.insforge && window.insforge.ai) {
+    try {
+      const cats = Object.keys(CATEGORIA_KEYWORDS).join(', ');
+      const resp = await window.insforge.ai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: `Clasifica este gasto/ingreso en UNA sola categoria. Responde SOLO con el nombre exacto de la categoria, nada mas. Categorias validas: ${cats}` },
+          { role: 'user', content: concepto }
+        ],
+        temperature: 0,
+        maxTokens: 20
+      });
+      const cat = resp.choices?.[0]?.message?.content?.trim();
+      if (cat && Object.keys(CATEGORIA_KEYWORDS).includes(cat)) return cat;
+    } catch (e) {}
+  }
+  return null;
+}
 
 function getProyectoName(tareaId) {
   if (!tareaId) return null;
@@ -15,8 +58,24 @@ function getProyectoName(tareaId) {
   return null;
 }
 
+function getDateRange(periodo) {
+  const now = new Date();
+  const start = new Date(now);
+  switch (periodo) {
+    case 'mes': start.setDate(1); break;
+    case 'trimestre': start.setMonth(now.getMonth() - 3); break;
+    case 'ano': start.setFullYear(now.getFullYear(), 0, 1); break;
+    case 'todo': return null;
+  }
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
 function getFilteredFinanzas() {
   let data = [...finanzasData];
+  
+  const range = getDateRange(finanzasPeriodo);
+  if (range) data = data.filter(f => new Date(f.fecha) >= range);
   
   if (finanzasFilterCuenta !== 'todas') {
     data = data.filter(f => f.cuentaId === finanzasFilterCuenta);
@@ -66,7 +125,15 @@ function renderFinanzas() {
     </div>
 
     <!-- Filtros -->
-    <div style="display:flex;gap:var(--space-md);margin-bottom:var(--space-lg);flex-wrap:wrap">
+    <div style="display:flex;gap:var(--space-md);margin-bottom:var(--space-lg);flex-wrap:wrap;align-items:center">
+      <div style="display:flex;align-items:center;gap:var(--space-xs)">
+        <span style="font-size:var(--text-xs);color:var(--text-secondary);font-weight:500">Periodo:</span>
+        <button class="filter-pill ${finanzasPeriodo === 'mes' ? 'active' : ''}" style="height:28px" onclick="finanzasPeriodo='mes';renderFinanzas()">Este mes</button>
+        <button class="filter-pill ${finanzasPeriodo === 'trimestre' ? 'active' : ''}" style="height:28px" onclick="finanzasPeriodo='trimestre';renderFinanzas()">Trimestre</button>
+        <button class="filter-pill ${finanzasPeriodo === 'ano' ? 'active' : ''}" style="height:28px" onclick="finanzasPeriodo='ano';renderFinanzas()">Este ano</button>
+        <button class="filter-pill ${finanzasPeriodo === 'todo' ? 'active' : ''}" style="height:28px" onclick="finanzasPeriodo='todo';renderFinanzas()">Todo</button>
+      </div>
+      <div style="width:1px;height:20px;background:var(--border-subtle)"></div>
       <div style="display:flex;align-items:center;gap:var(--space-xs)">
         <span style="font-size:var(--text-xs);color:var(--text-secondary);font-weight:500">Cuenta:</span>
         <select class="input" style="height:28px;font-size:var(--text-xs);padding:0 24px 0 8px" onchange="finanzasFilterCuenta=this.value;renderFinanzas()">
@@ -108,6 +175,20 @@ function renderFinanzas() {
         <div class="stat-card-value">${formatCurrency(balance)}</div>
       </div>
     </div>
+
+    ${(() => {
+      const patterns = detectRecurringPatterns();
+      if (patterns.length === 0) return '';
+      return patterns.map((p, i) => `<div class="finanzas-recurring-banner">
+        <div class="finanzas-recurring-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </div>
+        <div class="finanzas-recurring-text">
+          <strong>Patron detectado:</strong> "${p.concepto}" ~${formatCurrency(p.monto)}/mes (${p.count} veces, ~${p.avgInterval} dias)
+          <span class="finanzas-recurring-action" onclick="openConvertToSubModal(${i})">Convertir en suscripcion</span>
+        </div>
+      </div>`).join('');
+    })()}
 
     ${finanzasView === 'lista' ? renderFinanzasList(filtered) : finanzasView === 'resumen' ? renderFinanzasResumen(filtered) : finanzasView === 'proyectos' ? renderFinanzasProyectos(proyectosTotals) : renderFinanzasCuentas(filtered)}
   `;
@@ -284,6 +365,120 @@ function renderFinanzasCuentas(data) {
   `;
 }
 
+function detectRecurringPatterns() {
+  const egresos = finanzasData.filter(f => f.tipo === 'gasto' && !f.tareaId);
+  const groups = {};
+  egresos.forEach(t => {
+    const key = `${t.concepto.toLowerCase().trim()}_${t.monto}`;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(t);
+  });
+  const suggestions = [];
+  for (const [key, txns] of Object.entries(groups)) {
+    if (txns.length < 3) continue;
+    const sorted = txns.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    const intervals = [];
+    for (let i = 1; i < sorted.length; i++) {
+      const diff = (new Date(sorted[i].fecha) - new Date(sorted[i-1].fecha)) / (1000*60*60*24);
+      intervals.push(diff);
+    }
+    const avgInterval = intervals.reduce((s, v) => s + v, 0) / intervals.length;
+    if (avgInterval >= 25 && avgInterval <= 35) {
+      const alreadySub = suscripcionesData.some(s =>
+        s.estado === 'activa' && s.servicio.toLowerCase() === sorted[0].concepto.toLowerCase().trim()
+      );
+      if (!alreadySub) {
+        suggestions.push({
+          concepto: sorted[0].concepto,
+          monto: sorted[0].monto,
+          cuentaId: sorted[0].cuentaId,
+          count: txns.length,
+          avgInterval: Math.round(avgInterval),
+          lastFecha: sorted[sorted.length - 1].fecha,
+        });
+      }
+    }
+  }
+  return suggestions;
+}
+
+function openConvertToSubModal(idx) {
+  const patterns = detectRecurringPatterns();
+  const pattern = patterns[idx];
+  if (!pattern) return;
+
+  const body = `
+    <div class="finanzas-convert-banner" style="margin-bottom:var(--space-lg)">
+      Se detectaron <strong>${pattern.count} transacciones</strong> de "${pattern.concepto}" por ~${formatCurrency(pattern.monto)}/mes.
+    </div>
+    <div class="form-group full">
+      <div class="form-field">
+        <label>Servicio</label>
+        <input type="text" class="input" id="conv-servicio" value="${pattern.concepto}">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-field">
+        <label>Costo mensual</label>
+        <input type="number" class="input" id="conv-costo" value="${pattern.monto}" placeholder="0.00">
+      </div>
+      <div class="form-field">
+        <label>Dia de corte</label>
+        <input type="number" class="input" id="conv-corte" min="1" max="31" value="${new Date().getDate()}">
+      </div>
+    </div>
+    <div class="form-group full">
+      <div class="form-field">
+        <label>Descripcion</label>
+        <input type="text" class="input" id="conv-descripcion" value="${pattern.concepto}">
+      </div>
+    </div>
+    <div class="form-group full">
+      <div class="form-field">
+        <label>Cuenta de cobro</label>
+        <select class="input" id="conv-cuenta">
+          ${cuentasData.map(c => `<option value="${c.id}" ${c.id === pattern.cuentaId ? 'selected' : ''}>${c.banco} **** ${c.terminacion}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+  `;
+
+  const footer = `
+    <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="confirmConvertToSub()">Crear suscripcion</button>
+  `;
+
+  openModal('Convertir en Suscripcion', body, footer);
+}
+
+async function confirmConvertToSub() {
+  const servicio = document.getElementById('conv-servicio').value;
+  const costo = parseFloat(document.getElementById('conv-costo').value) || 0;
+  const fechaCorte = parseInt(document.getElementById('conv-corte').value) || 1;
+  const descripcion = document.getElementById('conv-descripcion').value;
+  const cuentaId = document.getElementById('conv-cuenta').value || null;
+
+  if (!servicio || !costo) {
+    showToast('Completa servicio y costo', 'error');
+    return;
+  }
+
+  const result = await createSubscription({
+    servicio,
+    descripcion,
+    costo,
+    fechaInicio: new Date().toISOString().split('T')[0],
+    fechaCorte,
+    cuentaId
+  });
+
+  if (result) {
+    closeModal();
+    renderFinanzas();
+    showToast('Suscripcion creada desde patron detectado');
+  }
+}
+
 function openFinanzasModal() {
   const body = `
     <div class="form-group">
@@ -303,6 +498,7 @@ function openFinanzasModal() {
       <div class="form-field">
         <label>Concepto</label>
         <input type="text" class="input" id="fin-concepto" placeholder="Descripcion del gasto/ingreso">
+        <div id="fin-cat-hint" class="fin-cat-hint"></div>
       </div>
     </div>
     <div class="form-group">
@@ -312,6 +508,16 @@ function openFinanzasModal() {
           <option value="Alimentacion">Alimentacion</option>
           <option value="Transporte">Transporte</option>
           <option value="Servicios">Servicios</option>
+          <option value="Entretenimiento">Entretenimiento</option>
+          <option value="Salud">Salud</option>
+          <option value="Educacion">Educacion</option>
+          <option value="Hogar">Hogar</option>
+          <option value="Ropa">Ropa</option>
+          <option value="Mascota">Mascota</option>
+          <option value="Regalos">Regalos</option>
+          <option value="Viajes">Viajes</option>
+          <option value="Inversiones">Inversiones</option>
+          <option value="Impuestos">Impuestos</option>
           <option value="Trabajo">Trabajo</option>
           <option value="Proyecto">Proyecto</option>
           <option value="Otro">Otro</option>
@@ -346,6 +552,29 @@ function openFinanzasModal() {
   `;
 
   openModal('Nueva Transaccion', body, footer);
+
+  setTimeout(() => {
+    const conceptoInput = document.getElementById('fin-concepto');
+    if (conceptoInput) {
+      conceptoInput.addEventListener('input', () => {
+        clearTimeout(_finanzasCatDebounce);
+        const val = conceptoInput.value.trim();
+        const hint = document.getElementById('fin-cat-hint');
+        if (val.length < 3) { if (hint) hint.textContent = ''; return; }
+        _finanzasCatDebounce = setTimeout(async () => {
+          const suggested = await guessCategory(val);
+          if (suggested && hint) {
+            const catSelect = document.getElementById('fin-categoria');
+            hint.textContent = `Sugerencia: ${suggested}`;
+            hint.style.cursor = 'pointer';
+            hint.onclick = () => { catSelect.value = suggested; };
+          } else if (hint) {
+            hint.textContent = '';
+          }
+        }, 400);
+      });
+    }
+  }, 0);
 }
 
 async function saveFinanzas() {
