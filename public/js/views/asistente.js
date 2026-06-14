@@ -436,6 +436,290 @@ function renderAlerts(items) {
   `;
 }
 
+/* ── Resumen humano + insights (derivados en cliente, siempre disponibles) ── */
+
+function buildGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Buenos dias';
+  if (h < 19) return 'Buenas tardes';
+  return 'Buenas noches';
+}
+
+function buildDateLabel() {
+  return new Date().toLocaleDateString('es-MX', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  });
+}
+
+function joinNatural(parts) {
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0];
+  return parts.slice(0, -1).join(', ') + ' y ' + parts[parts.length - 1];
+}
+
+function buildDayHeadline(s) {
+  const ev = s.calendario.eventosHoy.length;
+  const urg = s.tareas.urgentes.length;
+  const cortes = s.suscripciones.proximasCorte.length;
+
+  const parts = [];
+  if (ev > 0) parts.push(`${ev} evento${ev > 1 ? 's' : ''} hoy`);
+  if (urg > 0) parts.push(`${urg} tarea${urg > 1 ? 's' : ''} urgente${urg > 1 ? 's' : ''}`);
+  if (cortes > 0) parts.push(`${cortes} cobro${cortes > 1 ? 's' : ''} cerca`);
+
+  if (parts.length === 0) {
+    const pend = s.tareas.pendientes.length;
+    if (pend > 0) return `Sin urgencias hoy. Tienes ${pend} pendiente${pend > 1 ? 's' : ''} cuando quieras avanzar.`;
+    return 'Tu dia esta despejado. Buen momento para planear lo que viene.';
+  }
+  return `Para hoy: ${joinNatural(parts)}.`;
+}
+
+function computeInsights(s) {
+  const { finanzas, suscripciones, cuentas } = s;
+  const out = [];
+
+  // Tasa de ahorro / balance
+  if (finanzas.ingresos > 0) {
+    const pct = Math.round((finanzas.balance / finanzas.ingresos) * 100);
+    if (finanzas.balance >= 0) {
+      out.push({
+        label: 'Tasa de ahorro',
+        value: `${pct}%`,
+        detail: `Te queda ${formatCurrency(finanzas.balance)} este mes`,
+        tone: pct >= 20 ? 'good' : 'neutral',
+      });
+    } else {
+      out.push({
+        label: 'Gastas mas de lo que entra',
+        value: `-${formatCurrency(Math.abs(finanzas.balance))}`,
+        detail: 'Tus gastos superan tus ingresos del mes',
+        tone: 'bad',
+      });
+    }
+  }
+
+  // Deuda en tarjetas de credito
+  const credito = (cuentas || []).filter(c => c.tipo === 'credito');
+  const deuda = credito.reduce((acc, c) => acc + (c.saldo || 0), 0);
+  if (deuda > 0) {
+    out.push({
+      label: 'En tarjetas de credito',
+      value: formatCurrency(deuda),
+      detail: `${credito.length} tarjeta${credito.length > 1 ? 's' : ''} con saldo por pagar`,
+      tone: 'warn',
+    });
+  }
+
+  // Costo anual de suscripciones (+ % del ingreso)
+  if (suscripciones.gastoMensual > 0) {
+    const anual = suscripciones.gastoMensual * 12;
+    const pctIng = finanzas.ingresos > 0
+      ? Math.round((suscripciones.gastoMensual / finanzas.ingresos) * 100)
+      : null;
+    out.push({
+      label: 'Suscripciones al año',
+      value: formatCurrency(anual),
+      detail: `${formatCurrency(suscripciones.gastoMensual)}/mes`
+        + (pctIng !== null ? ` · ${pctIng}% de tu ingreso` : ''),
+      tone: pctIng !== null && pctIng > 15 ? 'warn' : 'neutral',
+    });
+  }
+
+  // Concentracion de gasto
+  if (finanzas.topCategoria && finanzas.gastos > 0) {
+    const [cat, monto] = finanzas.topCategoria;
+    const pct = Math.round((monto / finanzas.gastos) * 100);
+    out.push({
+      label: `Mayor gasto: ${cat}`,
+      value: `${pct}%`,
+      detail: `${formatCurrency(monto)} de ${formatCurrency(finanzas.gastos)} en gastos`,
+      tone: pct > 40 ? 'warn' : 'neutral',
+    });
+  }
+
+  // Disponible en cuentas de debito
+  const debito = (cuentas || []).filter(c => c.tipo !== 'credito');
+  const disponible = debito.reduce((acc, c) => acc + (c.saldo || 0), 0);
+  if (debito.length > 0) {
+    out.push({
+      label: 'Disponible en cuentas',
+      value: formatCurrency(disponible),
+      detail: `${debito.length} cuenta${debito.length > 1 ? 's' : ''} de debito`,
+      tone: 'neutral',
+    });
+  }
+
+  return out.slice(0, 4);
+}
+
+function renderInsights(items) {
+  if (!items || items.length === 0) return '';
+  return `
+    <section class="ast-section">
+      <h3 class="ast-label">Lo que note</h3>
+      <div class="ast-insights-grid">
+        ${items.map(i => `
+          <div class="ast-insight ast-insight-${esc(i.tone || 'neutral')}">
+            <span class="ast-insight-value">${esc(i.value)}</span>
+            <span class="ast-insight-label">${esc(i.label)}</span>
+            ${i.detail ? `<span class="ast-insight-detail">${esc(i.detail)}</span>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+/* ── Tiempo libre estimado ────────────────────────────── */
+
+const DAILY_CAPACITY_H = 8;   // horas productivas asumidas por dia
+const EVENT_HOURS = 1;        // duracion asumida por evento
+const TASK_MINUTES = 45;      // duracion asumida por tarea
+
+function computeFreeTime(s) {
+  const events = s.calendario.eventosHoy.length;
+  const committedH = Math.min(events * EVENT_HOURS, DAILY_CAPACITY_H);
+  const freeH = Math.max(DAILY_CAPACITY_H - committedH, 0);
+  const freePct = Math.round((freeH / DAILY_CAPACITY_H) * 100);
+  const taskSlots = Math.floor((freeH * 60) / TASK_MINUTES);
+  return { capacityH: DAILY_CAPACITY_H, committedH, freeH, freePct, events, taskSlots };
+}
+
+function renderFreeTime(ft) {
+  const note = ft.taskSlots > 0
+    ? `Alcanza para ~${ft.taskSlots} tarea${ft.taskSlots > 1 ? 's' : ''} de ~${TASK_MINUTES} min`
+    : 'Dia muy ocupado para tareas largas';
+  return `
+    <section class="ast-section">
+      <h3 class="ast-label">Tiempo libre hoy</h3>
+      <div class="ast-freetime">
+        <div class="ast-freetime-top">
+          <span class="ast-freetime-value">≈ ${ft.freeH} h libres</span>
+          <span class="ast-freetime-sub">${ft.committedH} h en ${ft.events} evento${ft.events === 1 ? '' : 's'}</span>
+        </div>
+        <div class="ast-bar"><div class="ast-bar-fill" style="width:${ft.freePct}%"></div></div>
+        <p class="ast-freetime-note">${note} · estimado sobre ${ft.capacityH} h productivas</p>
+      </div>
+    </section>
+  `;
+}
+
+/* ── Por donde empezar (plan de tareas) ───────────────── */
+
+function recommendTasks(s) {
+  const isDone = t => t.estado === 'completado' || t.etapaId === 6;
+  const inProgress = t => t.estado === 'en-progreso' || (t.etapaId >= 2 && t.etapaId <= 5);
+
+  return s.tareas.all
+    .filter(t => !isDone(t))
+    .map(t => {
+      let score = 0;
+      const reasons = [];
+      if (t.prioridad === 'alta') { score += 100; reasons.push('Prioridad alta'); }
+      else if (t.prioridad === 'media') { score += 40; reasons.push('Prioridad media'); }
+      else { score += 10; }
+      if (inProgress(t)) { score += 30; reasons.push('ya empezada, cierrala'); }
+      else { reasons.push('por empezar'); }
+      return {
+        titulo: t.titulo,
+        proyecto: t.proyecto,
+        reason: reasons.join(' · '),
+        score,
+      };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+}
+
+function renderStartHere(tasks) {
+  if (!tasks || tasks.length === 0) return '';
+  return `
+    <section class="ast-section">
+      <h3 class="ast-label">Por donde empezar</h3>
+      <ol class="ast-start-list">
+        ${tasks.map((t, i) => `
+          <li>
+            <a href="#/proyectos" class="ast-start-item">
+              <span class="ast-start-num">${i + 1}</span>
+              <span class="ast-start-body">
+                <span class="ast-start-title">${esc(t.titulo)}</span>
+                <span class="ast-start-reason">${esc(t.reason)}${t.proyecto ? ` · ${esc(t.proyecto)}` : ''}</span>
+              </span>
+            </a>
+          </li>
+        `).join('')}
+      </ol>
+    </section>
+  `;
+}
+
+/* ── Como ahorrar mas / gastar menos ──────────────────── */
+
+function buildSavingsTips(s) {
+  const { finanzas, suscripciones } = s;
+  const tips = [];
+
+  // Recorte de la mayor categoria de gasto
+  if (finanzas.topCategoria && finanzas.gastos > 0) {
+    const [cat, monto] = finanzas.topCategoria;
+    const ahorro = Math.round(monto * 0.15);
+    if (ahorro > 0) {
+      tips.push({
+        title: `Recorta 15% en ${cat}: ahorras ~${formatCurrency(ahorro)}/mes`,
+        detail: `Es tu mayor gasto (${formatCurrency(monto)}). Un ajuste pequeno rinde.`,
+      });
+    }
+  }
+
+  // Suscripcion mas cara
+  if (suscripciones.activas.length > 0) {
+    const masCara = [...suscripciones.activas].sort((a, b) => b.costo - a.costo)[0];
+    if (masCara && masCara.costo > 0) {
+      tips.push({
+        title: `Revisa ${masCara.servicio}: ${formatCurrency(masCara.costo)}/mes`,
+        detail: `Es tu suscripcion mas cara — ${formatCurrency(masCara.costo * 12)} al año. Cancelarla si no la usas libera ese monto.`,
+      });
+    }
+  }
+
+  // Deficit / meta concreta
+  if (finanzas.balance < 0) {
+    tips.push({
+      title: `Recorta ~${formatCurrency(Math.abs(finanzas.balance))} para cerrar el mes en positivo`,
+      detail: 'Tus gastos van por encima de tus ingresos este mes.',
+    });
+  } else if (finanzas.ingresos > 0) {
+    const pct = Math.round((finanzas.balance / finanzas.ingresos) * 100);
+    if (pct < 20 && finanzas.balance > 0) {
+      const meta = Math.round(finanzas.ingresos * 0.20 - finanzas.balance);
+      tips.push({
+        title: `Te faltan ~${formatCurrency(meta)} para ahorrar el 20% de tu ingreso`,
+        detail: `Vas en ${pct}%. Recortar gastos chicos te acerca rapido.`,
+      });
+    }
+  }
+
+  return tips.slice(0, 3);
+}
+
+function renderSavings(tips) {
+  if (!tips || tips.length === 0) return '';
+  return `
+    <section class="ast-section">
+      <h3 class="ast-label">Como ahorrar mas</h3>
+      <ul class="ast-tip-list">
+        ${tips.map(t => `
+          <li class="ast-tip">
+            <span class="ast-tip-title">${esc(t.title)}</span>
+            ${t.detail ? `<span class="ast-tip-detail">${esc(t.detail)}</span>` : ''}
+          </li>
+        `).join('')}
+      </ul>
+    </section>
+  `;
+}
+
 async function renderAsistente() {
   if (briefLoading) {
     render(renderAsistenteLoading());
@@ -451,21 +735,35 @@ async function renderAsistente() {
 
   const { priority, next, context, defer: deferItems, alerts, generatedAt, source } = briefData;
 
+  // Resumen humano + insights: derivados del snapshot actual (siempre disponibles)
+  const snapshot = collectLifeSnapshot();
+  const greeting = buildGreeting();
+  const dateLabel = buildDateLabel();
+  const headline = buildDayHeadline(snapshot);
+  const insights = computeInsights(snapshot);
+  const freeTime = computeFreeTime(snapshot);
+  const startTasks = recommendTasks(snapshot);
+  const savings = buildSavingsTips(snapshot);
+
   const html = `
     <div class="asistente">
       <header class="ast-header">
-        <div>
-          <h2 class="ast-title">Aliester</h2>
-          <p class="ast-meta">${esc(generatedAt)}${source === 'local' ? ' · local' : ' · ia'}</p>
+        <div class="ast-greeting">
+          <p class="ast-greeting-hello">${esc(greeting)} · ${esc(dateLabel)}</p>
+          <h2 class="ast-title">${esc(headline)}</h2>
+          <p class="ast-meta">Actualizado ${esc(generatedAt)}${source === 'local' ? ' · local' : ' · ia'}</p>
         </div>
         <button class="btn btn-secondary btn-sm" onclick="refreshBrief()">Actualizar</button>
       </header>
 
       ${renderPriority(priority)}
-      ${renderNext(next)}
+      ${renderFreeTime(freeTime)}
+      ${renderStartHere(startTasks)}
+      ${renderInsights(insights)}
+      ${renderSavings(savings)}
+      ${renderAlerts(alerts)}
       ${renderContext(context)}
       ${renderDefer(deferItems)}
-      ${renderAlerts(alerts)}
     </div>
   `;
   render(html);
