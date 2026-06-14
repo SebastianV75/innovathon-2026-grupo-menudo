@@ -134,6 +134,15 @@ function renderGcalBar() {
   `;
 }
 
+// Escape user text before injecting into HTML / attribute values.
+function escEvento(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function renderCalendario() {
   const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const dayNames = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
@@ -222,11 +231,14 @@ function renderCalendario() {
             ${eventosData.sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, 5).map(e => `
               <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border-subtle)">
                 <div style="width:4px;height:32px;border-radius:2px;background:var(--${e.color === 'blue' ? 'info' : e.color === 'green' ? 'success' : e.color === 'orange' ? 'warning' : 'error'})"></div>
-                <div style="flex:1">
-                  <div style="font-size:var(--text-sm);font-weight:500">${e.titulo}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:var(--text-sm);font-weight:500">${escEvento(e.titulo)}</div>
                   <div style="font-size:var(--text-xs);color:var(--text-secondary)">${formatDate(e.fecha)} ${e.hora !== '00:00' ? e.hora : ''}</div>
                 </div>
-                <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteEvento('${e.id}')">
+                <button class="btn btn-ghost btn-icon btn-sm" title="Editar" onclick="openEditEventoModal('${e.id}')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="btn btn-ghost btn-icon btn-sm" title="Eliminar" onclick="deleteEvento('${e.id}')">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
               </div>
@@ -282,6 +294,13 @@ function openNuevoEventoModal() {
         </select>
       </div>
     </div>
+    ${window.eventsHasDescripcion ? `
+    <div class="form-group full">
+      <div class="form-field">
+        <label>Descripcion</label>
+        <textarea class="input" id="evento-descripcion" rows="3" placeholder="Detalles (opcional)"></textarea>
+      </div>
+    </div>` : ''}
   `;
 
   const footer = `
@@ -302,10 +321,17 @@ function openEventoModal(dateStr) {
     ${dayEvents.length > 0 ? dayEvents.map(e => `
       <div style="display:flex;align-items:center;gap:12px;padding:8px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);margin-bottom:8px">
         <div style="width:4px;height:24px;border-radius:2px;background:var(--${e.color === 'blue' ? 'info' : e.color === 'green' ? 'success' : e.color === 'orange' ? 'warning' : 'error'})"></div>
-        <div style="flex:1">
-          <div style="font-size:var(--text-sm);font-weight:500">${e.titulo}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:var(--text-sm);font-weight:500">${escEvento(e.titulo)}</div>
           <div style="font-size:var(--text-xs);color:var(--text-secondary)">${e.hora}</div>
+          ${e.descripcion ? `<div style="font-size:var(--text-xs);color:var(--text-secondary);margin-top:2px;white-space:pre-wrap">${escEvento(e.descripcion)}</div>` : ''}
         </div>
+        <button class="btn btn-ghost btn-icon btn-sm" title="Editar" onclick="openEditEventoModal('${e.id}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn btn-ghost btn-icon btn-sm" title="Eliminar" onclick="deleteEventoFromDay('${e.id}','${dateStr}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
       </div>
     `).join('') : '<div style="text-align:center;padding:var(--space-lg);color:var(--text-secondary)">No hay eventos</div>'}
   `;
@@ -318,18 +344,107 @@ function openEventoModal(dateStr) {
   openModal('Eventos del dia', body, footer);
 }
 
-async function saveEvento() {
-  const titulo = document.getElementById('evento-titulo').value;
-  const fecha = document.getElementById('evento-fecha').value;
-  const hora = document.getElementById('evento-hora').value;
-  const color = document.getElementById('evento-color').value;
+function openEditEventoModal(id) {
+  const e = eventosData.find(ev => ev.id === id);
+  if (!e) { showToast('Evento no encontrado', 'error'); return; }
+
+  const colors = [
+    { value: 'blue', label: 'Azul' },
+    { value: 'green', label: 'Verde' },
+    { value: 'orange', label: 'Naranja' },
+    { value: 'red', label: 'Rojo' },
+  ];
+
+  const body = `
+    <div class="form-group full">
+      <div class="form-field">
+        <label>Titulo</label>
+        <input type="text" class="input" id="edit-evento-titulo" value="${escEvento(e.titulo)}" placeholder="Nombre del evento">
+      </div>
+    </div>
+    <div class="form-group">
+      <div class="form-field">
+        <label>Fecha</label>
+        <input type="date" class="input" id="edit-evento-fecha" value="${e.fecha}">
+      </div>
+      <div class="form-field">
+        <label>Hora</label>
+        <input type="time" class="input" id="edit-evento-hora" value="${e.hora || '00:00'}">
+      </div>
+    </div>
+    <div class="form-group full">
+      <div class="form-field">
+        <label>Color</label>
+        <select class="input" id="edit-evento-color">
+          ${colors.map(c => `<option value="${c.value}" ${e.color === c.value ? 'selected' : ''}>${c.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    ${window.eventsHasDescripcion ? `
+    <div class="form-group full">
+      <div class="form-field">
+        <label>Descripcion</label>
+        <textarea class="input" id="edit-evento-descripcion" rows="3" placeholder="Detalles (opcional)">${escEvento(e.descripcion)}</textarea>
+      </div>
+    </div>` : ''}
+  `;
+
+  const footer = `
+    <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveEditEvento('${e.id}')">Guardar</button>
+  `;
+
+  openModal('Editar Evento', body, footer);
+}
+
+async function saveEditEvento(id) {
+  const titulo = document.getElementById('edit-evento-titulo').value.trim();
+  const fecha = document.getElementById('edit-evento-fecha').value;
+  const hora = document.getElementById('edit-evento-hora').value;
+  const color = document.getElementById('edit-evento-color').value;
 
   if (!titulo || !fecha) {
     showToast('Completa titulo y fecha', 'error');
     return;
   }
 
-  const result = await createEvent({ titulo, fecha, hora, color });
+  const updates = { titulo, fecha, hora, color };
+  if (window.eventsHasDescripcion) {
+    const descEl = document.getElementById('edit-evento-descripcion');
+    if (descEl) updates.descripcion = descEl.value;
+  }
+
+  const ok = await updateEvent(id, updates);
+  if (ok) {
+    closeModal();
+    renderCalendario();
+    showToast('Evento actualizado');
+  }
+}
+
+async function deleteEventoFromDay(id, dateStr) {
+  const ok = await deleteEventRemote(id);
+  if (ok) {
+    renderCalendario();
+    showToast('Evento eliminado');
+    openEventoModal(dateStr); // refresca el modal del dia
+  }
+}
+
+async function saveEvento() {
+  const titulo = document.getElementById('evento-titulo').value;
+  const fecha = document.getElementById('evento-fecha').value;
+  const hora = document.getElementById('evento-hora').value;
+  const color = document.getElementById('evento-color').value;
+  const descEl = document.getElementById('evento-descripcion');
+  const descripcion = descEl ? descEl.value : '';
+
+  if (!titulo || !fecha) {
+    showToast('Completa titulo y fecha', 'error');
+    return;
+  }
+
+  const result = await createEvent({ titulo, fecha, hora, color, descripcion });
   if (result) {
     closeModal();
     renderCalendario();

@@ -16,6 +16,10 @@ window.eventosData = [];
 window.notasData = [];
 window.suscripcionesData = [];
 
+// Set to true once we detect the events.descripcion column exists (see loadAllData).
+// While false, event writes omit descripcion so creation/edit never breaks.
+window.eventsHasDescripcion = false;
+
 // ── Loading state ────────────────────────────────────────────────────────
 let _dataLoaded = false;
 let _dataLoading = false;
@@ -28,7 +32,7 @@ async function loadAllData() {
   _dataLoading = true;
 
   try {
-    const [accounts, transactions, projects, tasks, events, notes, subs] = await Promise.all([
+    const [accounts, transactions, projects, tasks, events, notes, subs, eventsProbe] = await Promise.all([
       db().from('accounts').select().order('created_at', { ascending: false }),
       db().from('transactions').select().order('fecha', { ascending: false }),
       db().from('projects').select().order('created_at', { ascending: false }),
@@ -36,7 +40,11 @@ async function loadAllData() {
       db().from('events').select().order('fecha', { ascending: true }),
       db().from('notes').select().order('created_at', { ascending: false }),
       db().from('subscriptions').select().order('created_at', { ascending: false }),
+      // Feature-detect the optional events.descripcion column (errors if absent).
+      db().from('events').select('descripcion').limit(1),
     ]);
+
+    window.eventsHasDescripcion = !eventsProbe.error;
 
     window.cuentasData = (accounts.data || []).map(mapAccount);
     window.finanzasData = (transactions.data || []).map(mapTransaction);
@@ -120,6 +128,7 @@ function mapEvent(r) {
     google_etag: r.google_etag || null,
     sync_status: r.sync_status || 'local',
     external_source: r.external_source || null,
+    descripcion: r.descripcion || '',
   };
 }
 
@@ -281,11 +290,31 @@ async function createEvent(data) {
     hora: data.hora || '00:00',
     color: data.color || 'blue',
   };
+  if (window.eventsHasDescripcion && data.descripcion !== undefined) {
+    row.descripcion = data.descripcion || '';
+  }
   const { data: inserted, error } = await db().from('events').insert([row]).select();
   if (error) { showToast('Error al crear evento', 'error'); return null; }
   const mapped = mapEvent(inserted[0]);
   window.eventosData.push(mapped);
   return mapped;
+}
+
+async function updateEvent(id, updates) {
+  const row = {};
+  if (updates.titulo !== undefined) row.titulo = updates.titulo;
+  if (updates.fecha !== undefined) row.fecha = updates.fecha;
+  if (updates.hora !== undefined) row.hora = updates.hora;
+  if (updates.color !== undefined) row.color = updates.color;
+  if (window.eventsHasDescripcion && updates.descripcion !== undefined) {
+    row.descripcion = updates.descripcion;
+  }
+
+  const { error } = await db().from('events').update(row).eq('id', id);
+  if (error) { showToast('Error al actualizar evento', 'error'); return false; }
+  const idx = window.eventosData.findIndex(e => e.id === id);
+  if (idx !== -1) Object.assign(window.eventosData[idx], updates);
+  return true;
 }
 
 async function deleteEventRemote(id) {
