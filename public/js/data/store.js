@@ -105,6 +105,7 @@ function mapTask(r) {
     estado: r.estado,
     etapaId: Number.isNaN(etapaId) ? (r.estado === 'completado' ? 6 : r.estado === 'en-progreso' ? 4 : 1) : etapaId,
     prioridad: r.prioridad,
+    fecha_terminado: r.fecha_terminado || null,
   };
 }
 
@@ -251,6 +252,7 @@ async function updateTask(id, updates) {
   if (updates.etapaId !== undefined) row.estado = String(updates.etapaId);
   if (updates.prioridad !== undefined) row.prioridad = updates.prioridad;
   if (updates.titulo !== undefined) row.titulo = updates.titulo;
+  if (updates.fecha_terminado !== undefined) row.fecha_terminado = updates.fecha_terminado;
 
   const { error } = await db().from('tasks').update(row).eq('id', id);
   if (error) { showToast('Error al actualizar tarea', 'error'); return false; }

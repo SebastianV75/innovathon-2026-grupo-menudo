@@ -76,7 +76,8 @@ async function handleDrop(event, etapaId) {
   const tareaId = event.dataTransfer.getData('text/plain');
   if (!tareaId) return;
   const etapa = etapasData.find(e => e.id === etapaId);
-  const ok = await updateTask(tareaId, { etapaId, estado: String(etapaId) });
+  const fechaTerminado = etapaId === 6 ? new Date().toISOString() : null;
+  const ok = await updateTask(tareaId, { etapaId, estado: String(etapaId), fecha_terminado: fechaTerminado });
   if (ok) { renderProyectos(); showToast(`Tarea movida a "${etapa ? etapa.nombre : 'etapa'}"`); }
 }
 
@@ -144,7 +145,8 @@ async function saveFinanzaProyecto(tareaId) {
 async function updateTarea(id) {
   const prioridad = document.getElementById('detail-prioridad').value;
   const etapaId = Number(document.getElementById('detail-etapa').value);
-  const ok = await updateTask(id, { prioridad, etapaId, estado: String(etapaId) });
+  const fechaTerminado = etapaId === 6 ? new Date().toISOString() : null;
+  const ok = await updateTask(id, { prioridad, etapaId, estado: String(etapaId), fecha_terminado: fechaTerminado });
   if (ok) { closeModal(); renderProyectos(); showToast('Tarea actualizada'); }
 }
 
