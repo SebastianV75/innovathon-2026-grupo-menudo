@@ -11,6 +11,7 @@ let etapasData = [
 
 let kanbanFilter = 'todos';
 let draggedTareaId = null;
+let mostrarTerminadasAntiguas = false;
 
 function getTaskEtapaId(tarea) {
   if (tarea.etapaId) return Number(tarea.etapaId);
@@ -25,6 +26,22 @@ function renderProyectos() {
   let allTareas = proyectosData.flatMap(p => p.tareas || []);
   if (kanbanFilter !== 'todos') allTareas = allTareas.filter(t => t.prioridad === kanbanFilter);
 
+  const sieteDias = 7 * 24 * 60 * 60 * 1000;
+  const ahora = new Date().getTime();
+  const tareasTerminadasAntiguas = allTareas.filter(t => {
+    if (getTaskEtapaId(t) !== 6) return false;
+    if (!t.fechaTerminado) return false;
+    return (ahora - new Date(t.fechaTerminado).getTime()) > sieteDias;
+  });
+  
+  if (!mostrarTerminadasAntiguas) {
+    allTareas = allTareas.filter(t => {
+      if (getTaskEtapaId(t) !== 6) return true;
+      if (!t.fechaTerminado) return true;
+      return (ahora - new Date(t.fechaTerminado).getTime()) <= sieteDias;
+    });
+  }
+
   const html = `
     <div class="control-panel">
       <h2 class="control-panel-title">Proyectos y Tareas</h2>
@@ -36,6 +53,11 @@ function renderProyectos() {
         <button class="filter-pill ${kanbanFilter === 'baja' ? 'active' : ''}" onclick="kanbanFilter='baja';renderProyectos()">Baja</button>
       </div>
       <div class="control-panel-actions">
+        ${tareasTerminadasAntiguas.length > 0 ? `
+          <button class="btn btn-secondary btn-sm" onclick="mostrarTerminadasAntiguas=!mostrarTerminadasAntiguas;renderProyectos()">
+            ${mostrarTerminadasAntiguas ? 'Ocultar' : 'Mostrar'} ${tareasTerminadasAntiguas.length} terminada${tareasTerminadasAntiguas.length > 1 ? 's' : ''} antigua${tareasTerminadasAntiguas.length > 1 ? 's' : ''}
+          </button>
+        ` : ''}
         <button class="btn btn-secondary btn-sm" onclick="openEtapasManager()">Administrar Etapas</button>
         <button class="btn btn-secondary btn-sm" onclick="openProyectoModal()">Nuevo Proyecto</button>
         <button class="btn btn-primary btn-sm" onclick="openTareaModal()" ${proyectosData.length === 0 ? 'disabled' : ''}>Nueva Tarea</button>
@@ -156,9 +178,132 @@ async function deleteTarea(id) {
 }
 
 function openEtapasManager() {
-  const body = `<div class="etapas-manager"><div class="etapas-manager-list">${etapasData.sort((a, b) => a.orden - b.orden).map(e => `<div class="etapa-manager-item"><input class="etapa-manager-input" value="${e.nombre}" onchange="renameEtapa(${e.id}, this.value)"></div>`).join('')}</div></div>`;
+  const body = `
+    <div class="etapas-manager">
+      <div class="etapas-manager-list">
+        ${etapasData.sort((a, b) => a.orden - b.orden).map(e => `
+          <div class="etapa-manager-item" draggable="true" data-etapa-id="${e.id}">
+            <div class="etapa-manager-handle">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
+                <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
+              </svg>
+            </div>
+            <input class="etapa-manager-input" value="${e.nombre}" onchange="renameEtapa(${e.id}, this.value)">
+            <div class="etapa-manager-actions">
+              <button class="btn-icon" onclick="deleteEtapa(${e.id})" title="Eliminar">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="addEtapa()" style="margin-top:var(--space-sm)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Nueva Etapa
+      </button>
+    </div>
+  `;
   const footer = `<button class="btn btn-secondary" onclick="closeModal()">Cerrar</button>`;
   openModal('Administrar Etapas', body, footer);
+  
+  setTimeout(initEtapasDragDrop, 100);
+}
+
+function initEtapasDragDrop() {
+  const items = document.querySelectorAll('.etapa-manager-item');
+  items.forEach(item => {
+    item.addEventListener('dragstart', handleEtapaDragStart);
+    item.addEventListener('dragover', handleEtapaDragOver);
+    item.addEventListener('drop', handleEtapaDrop);
+    item.addEventListener('dragend', handleEtapaDragEnd);
+    item.addEventListener('dragleave', handleEtapaDragLeave);
+  });
+}
+
+let draggedEtapaId = null;
+
+function handleEtapaDragStart(e) {
+  draggedEtapaId = e.currentTarget.dataset.etapaId;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleEtapaDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  if (e.currentTarget.dataset.etapaId !== draggedEtapaId) {
+    e.currentTarget.classList.add('drag-over');
+  }
+}
+
+function handleEtapaDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+
+function handleEtapaDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const targetId = e.currentTarget.dataset.etapaId;
+  if (draggedEtapaId && targetId && draggedEtapaId !== targetId) {
+    reorderEtapas(draggedEtapaId, targetId);
+  }
+}
+
+function handleEtapaDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.etapa-manager-item').forEach(item => {
+    item.classList.remove('drag-over');
+  });
+}
+
+function reorderEtapas(draggedId, targetId) {
+  const dragged = etapasData.find(e => e.id === Number(draggedId));
+  const target = etapasData.find(e => e.id === Number(targetId));
+  if (!dragged || !target) return;
+  
+  const draggedOrden = dragged.orden;
+  dragged.orden = target.orden;
+  target.orden = draggedOrden;
+  
+  renderProyectos();
+  openEtapasManager();
+}
+
+function addEtapa() {
+  const maxId = Math.max(...etapasData.map(e => e.id), 0);
+  const maxOrden = Math.max(...etapasData.map(e => e.orden), -1);
+  
+  etapasData.push({
+    id: maxId + 1,
+    nombre: 'Nueva Etapa',
+    orden: maxOrden + 1
+  });
+  
+  renderProyectos();
+  openEtapasManager();
+}
+
+function deleteEtapa(id) {
+  const tareasEnEtapa = proyectosData.flatMap(p => p.tareas || [])
+    .filter(t => getTaskEtapaId(t) === id);
+  
+  if (tareasEnEtapa.length > 0) {
+    showToast(`No se puede eliminar: hay ${tareasEnEtapa.length} tarea(s) en esta etapa`, 'error');
+    return;
+  }
+  
+  const idx = etapasData.findIndex(e => e.id === id);
+  if (idx !== -1) {
+    etapasData.splice(idx, 1);
+    renderProyectos();
+    openEtapasManager();
+  }
 }
 
 function renameEtapa(id, nombre) {

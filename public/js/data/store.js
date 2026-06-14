@@ -113,7 +113,7 @@ function mapTask(r) {
     estado: r.estado,
     etapaId: Number.isNaN(etapaId) ? (r.estado === 'completado' ? 6 : r.estado === 'en-progreso' ? 4 : 1) : etapaId,
     prioridad: r.prioridad,
-    fecha_terminado: r.fecha_terminado || null,
+    fechaTerminado: r.fecha_terminado || null,
   };
 }
 
@@ -258,7 +258,10 @@ async function createTask(data) {
 async function updateTask(id, updates) {
   const row = {};
   if (updates.estado !== undefined) row.estado = updates.estado;
-  if (updates.etapaId !== undefined) row.estado = String(updates.etapaId);
+  if (updates.etapaId !== undefined) {
+    row.estado = String(updates.etapaId);
+    row.fecha_terminado = updates.etapaId === 6 ? new Date().toISOString() : null;
+  }
   if (updates.prioridad !== undefined) row.prioridad = updates.prioridad;
   if (updates.titulo !== undefined) row.titulo = updates.titulo;
   if (updates.fecha_terminado !== undefined) row.fecha_terminado = updates.fecha_terminado;
@@ -267,7 +270,12 @@ async function updateTask(id, updates) {
   if (error) { showToast('Error al actualizar tarea', 'error'); return false; }
   for (const p of window.proyectosData) {
     const t = p.tareas.find(t => t.id === id);
-    if (t) { Object.assign(t, updates); break; }
+    if (t) {
+      Object.assign(t, updates);
+      if (updates.etapaId === 6) t.fechaTerminado = new Date().toISOString();
+      else if (updates.etapaId !== undefined && updates.etapaId !== 6) t.fechaTerminado = null;
+      break;
+    }
   }
   return true;
 }
