@@ -1688,21 +1688,74 @@ a.ast-context-row:hover { background: var(--bg-tertiary); }
   /* Kanban */
   .kanban {
     height: auto;
-    min-height: calc(100vh - 140px);
+    min-height: calc(100dvh - 140px);
+    scroll-snap-type: x mandatory;
+    scroll-padding: var(--space-md);
   }
 
   .kanban-column {
-    min-width: 260px;
+    min-width: 280px;
+    scroll-snap-align: start;
   }
 
-  /* List / Tables - horizontal scroll */
+  /* List / Tables - stacked cards on mobile */
   .list-view {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
+    border: none;
+    background: transparent;
   }
 
   .list-table {
-    min-width: 500px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .list-table thead {
+    display: none;
+  }
+
+  .list-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .list-table tr {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    gap: var(--space-xs);
+  }
+
+  .list-table tr:hover td {
+    background: transparent;
+  }
+
+  .list-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: var(--text-sm);
+  }
+
+  .list-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .list-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    margin-right: var(--space-sm);
   }
 
   /* Form */
@@ -1814,5 +1867,37 @@ a.ast-context-row:hover { background: var(--bg-tertiary); }
   .finanzas-filters {
     flex-wrap: wrap;
     gap: var(--space-xs);
+  }
+
+  /* Datepicker dropdown */
+  .datepicker-dropdown {
+    width: min(280px, calc(100vw - 32px));
+    left: 0;
+    right: auto;
+  }
+
+  /* Google Calendar bar */
+  .gcal-bar {
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+  }
+
+  .gcal-bar-info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .gcal-bar-email {
+    max-width: 100%;
+  }
+
+  .gcal-bar-last-sync {
+    white-space: normal;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .gcal-bar-actions {
+    flex-shrink: 0;
   }
 }

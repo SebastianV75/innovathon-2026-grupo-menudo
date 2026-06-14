@@ -564,11 +564,14 @@ select.input {
     font-size: var(--text-xs);
   }
 
-  /* Buttons - larger touch targets */
+  /* Buttons - larger touch targets, allow text wrap */
   .btn {
     min-height: 44px;
     padding: var(--space-sm) var(--space-md);
     font-size: var(--text-sm);
+    white-space: normal;
+    max-width: 100%;
+    overflow: hidden;
   }
 
   .btn-sm {

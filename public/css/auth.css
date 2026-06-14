@@ -244,3 +244,14 @@
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-inverse);
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE (≤768px)
+   ════════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+  .auth-card {
+    margin: 0 var(--space-md);
+    padding: var(--space-xl) var(--space-md);
+  }
+}

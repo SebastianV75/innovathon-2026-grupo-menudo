@@ -631,6 +631,13 @@
     padding: var(--space-md) var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom, 0px)) var(--space-md);
   }
 
+  /* Settings dropdown */
+  .settings-dropdown {
+    width: min(272px, calc(100vw - 32px));
+    right: 0;
+    left: auto;
+  }
+
   /* Control Panel */
   .control-panel {
     gap: var(--space-sm);
