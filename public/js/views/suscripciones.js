@@ -99,7 +99,7 @@ function renderSuscripciones() {
                 </td>
                 <td>${getCuentaBadge(cuenta)}</td>
                 <td class="text-right">
-                  ${suscripcionesTab === 'activas' 
+                  ${suscripcionesTab === 'activas'
                     ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="cancelarSuscripcion('${s.id}')" title="Cancelar">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                       </button>`
@@ -107,6 +107,9 @@ function renderSuscripciones() {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                       </button>`
                   }
+                  <button class="btn btn-ghost btn-icon btn-sm" onclick="eliminarSuscripcion('${s.id}')" title="Eliminar definitivamente">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
                 </td>
               </tr>
             `;
@@ -308,6 +311,32 @@ async function reactivarSuscripcion(id) {
   if (ok) {
     renderSuscripciones();
     showToast('Suscripcion reactivada');
+  }
+}
+
+function eliminarSuscripcion(id) {
+  const sub = suscripcionesData.find(s => s.id === id);
+  if (!sub) return;
+
+  const body = `
+    <p style="font-size:var(--text-sm);color:var(--text-secondary);line-height:1.5">
+      ¿Eliminar <strong>${sub.servicio}</strong> de forma permanente?
+      Esta accion no se puede deshacer.
+    </p>
+  `;
+  const footer = `
+    <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-danger" onclick="confirmarEliminarSuscripcion('${id}')">Eliminar</button>
+  `;
+  openModal('Eliminar Suscripcion', body, footer);
+}
+
+async function confirmarEliminarSuscripcion(id) {
+  const ok = await deleteSubscriptionRemote(id);
+  if (ok) {
+    closeModal();
+    renderSuscripciones();
+    showToast('Suscripcion eliminada');
   }
 }
 

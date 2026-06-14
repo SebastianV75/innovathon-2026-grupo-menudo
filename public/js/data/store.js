@@ -245,6 +245,25 @@ async function createTransaction(data) {
   return mapped;
 }
 
+async function deleteTransactionRemote(id) {
+  const tx = window.finanzasData.find(f => f.id === id);
+  const { error } = await db().from('transactions').delete().eq('id', id);
+  if (error) { showToast('Error al eliminar transaccion', 'error'); return false; }
+  window.finanzasData = window.finanzasData.filter(f => f.id !== id);
+
+  // Reverse the balance effect that createTransaction applied
+  if (tx && tx.cuentaId) {
+    const cuenta = window.cuentasData.find(c => c.id === tx.cuentaId);
+    if (cuenta) {
+      const delta = tx.tipo === 'ingreso' ? -tx.monto : tx.monto;
+      const newSaldo = cuenta.saldo + delta;
+      cuenta.saldo = newSaldo;
+      updateCuenta(cuenta.id, { saldo: newSaldo });
+    }
+  }
+  return true;
+}
+
 // ── Projects CRUD ────────────────────────────────────────────────────────
 async function createProject(data) {
   const row = { nombre: data.nombre, descripcion: data.descripcion, estado: data.estado || 'activo' };
@@ -461,5 +480,12 @@ async function updateSubscription(id, updates) {
     if (updates.fecha_cancelacion !== undefined) window.suscripcionesData[idx].fechaCancelacion = updates.fecha_cancelacion;
     if (updates.motivo_cancelacion !== undefined) window.suscripcionesData[idx].motivoCancelacion = updates.motivo_cancelacion;
   }
+  return true;
+}
+
+async function deleteSubscriptionRemote(id) {
+  const { error } = await db().from('subscriptions').delete().eq('id', id);
+  if (error) { showToast('Error al eliminar suscripcion', 'error'); return false; }
+  window.suscripcionesData = window.suscripcionesData.filter(s => s.id !== id);
   return true;
 }

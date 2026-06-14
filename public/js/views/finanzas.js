@@ -224,8 +224,8 @@ function renderFinanzasList(data) {
                 <td><span class="badge ${f.tipo === 'ingreso' ? 'badge-success' : 'badge-error'}">${f.tipo === 'ingreso' ? 'Ingreso' : 'Gasto'}</span></td>
                 <td class="text-right text-mono" style="color:${f.tipo === 'ingreso' ? 'var(--success)' : 'var(--error)'}">${f.tipo === 'ingreso' ? '+' : '-'}${formatCurrency(f.monto)}</td>
                 <td class="text-right">
-                  <button class="btn btn-ghost btn-icon btn-sm">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                  <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteFinanza('${f.id}')" title="Eliminar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   </button>
                 </td>
               </tr>
@@ -607,6 +607,32 @@ async function saveFinanzas() {
     closeModal();
     renderFinanzas();
     showToast(`Transaccion guardada${cuentaId ? '. Saldo actualizado.' : ''}`);
+  }
+}
+
+function deleteFinanza(id) {
+  const tx = finanzasData.find(f => f.id === id);
+  if (!tx) return;
+  const signo = tx.tipo === 'ingreso' ? '+' : '-';
+  const body = `
+    <p style="font-size:var(--text-sm);color:var(--text-secondary);line-height:1.5">
+      ¿Eliminar <strong>${tx.concepto}</strong> (${signo}${formatCurrency(tx.monto)})?
+      ${tx.cuentaId ? 'El saldo de la cuenta se ajustara automaticamente.' : ''}
+    </p>
+  `;
+  const footer = `
+    <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-danger" onclick="confirmDeleteFinanza('${id}')">Eliminar</button>
+  `;
+  openModal('Eliminar transaccion', body, footer);
+}
+
+async function confirmDeleteFinanza(id) {
+  const ok = await deleteTransactionRemote(id);
+  if (ok) {
+    closeModal();
+    renderFinanzas();
+    showToast('Transaccion eliminada');
   }
 }
 
