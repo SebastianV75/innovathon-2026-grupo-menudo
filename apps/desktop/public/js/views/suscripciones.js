@@ -22,6 +22,22 @@ function renderSuscripciones() {
   const canceladas = suscripcionesData.filter(s => s.estado === 'cancelada');
   const totalMensual = activas.reduce((s, sub) => s + sub.costo, 0);
   const totalAnual = totalMensual * 12;
+  const promedioPorServicio = activas.length > 0 ? totalMensual / activas.length : 0;
+
+  // Cobros próximos (próximos 5 días) — solo si estamos en la pestaña Activas
+  const todayDay = new Date().getDate();
+  const cobrosProximos = suscripcionesTab === 'activas'
+    ? activas
+        .filter(s => Number.isFinite(Number(s.fechaCorte)))
+        .map(s => ({ sub: s, dias: Number(s.fechaCorte) - todayDay }))
+        .filter(x => x.dias >= 0 && x.dias <= 5)
+        .sort((a, b) => a.dias - b.dias)
+    : [];
+
+  const visibles = suscripcionesTab === 'activas' ? activas : canceladas;
+  const emptyMessage = suscripcionesTab === 'activas'
+    ? 'Sin suscripciones activas. Cuando tengas una, aparecerá aquí.'
+    : 'No tienes suscripciones canceladas.';
 
   const html = `
     <div class="control-panel">
@@ -45,30 +61,9 @@ function renderSuscripciones() {
       </div>
     </div>
 
-    <!-- Stats -->
-    <div class="dashboard-stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:var(--space-lg)">
-      <div class="stat-card">
-        <div class="stat-card-header">
-          <span class="stat-card-label">Gasto mensual</span>
-        </div>
-        <div class="stat-card-value" style="color:var(--error)">${formatCurrency(totalMensual)}</div>
-        <div class="stat-card-change">${activas.length} servicios activos</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card-header">
-          <span class="stat-card-label">Gasto anual estimado</span>
-        </div>
-        <div class="stat-card-value">${formatCurrency(totalAnual)}</div>
-        <div class="stat-card-change">Basado en tarifas actuales</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card-header">
-          <span class="stat-card-label">Promedio por servicio</span>
-        </div>
-        <div class="stat-card-value">${activas.length > 0 ? formatCurrency(totalMensual / activas.length) : formatCurrency(0)}</div>
-        <div class="stat-card-change">Mensual</div>
-      </div>
-    </div>
+    ${suscripcionesTab === 'activas' ? renderCobrosProximos(cobrosProximos) : ''}
+
+    ${suscripcionesTab === 'activas' ? renderTotalMes(totalMensual, activas.length) : ''}
 
     <!-- Lista -->
     <div class="list-view">
@@ -76,56 +71,145 @@ function renderSuscripciones() {
         <thead>
           <tr>
             <th>Servicio</th>
-            <th>Descripcion</th>
-            <th>Costo/mes</th>
-            <th>${suscripcionesTab === 'activas' ? 'Tiempo' : 'Cancelacion'}</th>
+            <th>${suscripcionesTab === 'activas' ? 'Próximo cobro' : 'Cancelación'}</th>
             <th>Cuenta</th>
+            <th class="text-right">Costo/mes</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          ${(suscripcionesTab === 'activas' ? activas : canceladas).map(s => {
-            const cuenta = getCuentaById(s.cuentaId);
-            return `
-              <tr>
-                <td style="font-weight:500">${s.servicio}</td>
-                <td style="color:var(--text-secondary);font-size:var(--text-xs)">${s.descripcion}</td>
-                <td class="text-mono" style="font-weight:600">${formatCurrency(s.costo)}</td>
-                <td style="font-size:var(--text-xs)">
-                  ${suscripcionesTab === 'activas' 
-                    ? `<span class="badge badge-success">${calcularTiempo(s.fechaInicio)}</span>`
-                    : `<div><div style="font-weight:500">${formatDate(s.fechaCancelacion)}</div><div style="color:var(--text-secondary);margin-top:2px">${s.motivoCancelacion}</div></div>`
-                  }
-                </td>
-                <td>${getCuentaBadge(cuenta)}</td>
-                <td class="text-right">
-                  ${suscripcionesTab === 'activas'
-                    ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="cancelarSuscripcion('${s.id}')" title="Cancelar">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>`
-                    : `<button class="btn btn-ghost btn-icon btn-sm" onclick="reactivarSuscripcion('${s.id}')" title="Reactivar">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                      </button>`
-                  }
-                  <button class="btn btn-ghost btn-icon btn-sm" onclick="eliminarSuscripcion('${s.id}')" title="Eliminar definitivamente">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                  </button>
-                </td>
-              </tr>
-            `;
-          }).join('')}
-          ${(suscripcionesTab === 'activas' ? activas : canceladas).length === 0 ? `
+          ${visibles.map(s => renderSubRow(s)).join('')}
+          ${visibles.length === 0 ? `
             <tr>
-              <td colspan="6" style="text-align:center;padding:var(--space-2xl);color:var(--text-secondary)">
-                ${suscripcionesTab === 'activas' ? 'No tienes suscripciones activas' : 'No tienes suscripciones canceladas'}
-              </td>
+              <td colspan="5" class="list-empty">${emptyMessage}</td>
             </tr>
           ` : ''}
         </tbody>
       </table>
     </div>
+
+    ${suscripcionesTab === 'activas' && activas.length > 0 ? `
+      <button class="ast-more-toggle" type="button" aria-expanded="false" aria-controls="sub-more-panel" onclick="toggleSubMore(this)">
+        <span class="ast-more-toggle-text">Ver más</span>
+        <svg class="ast-more-toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="ast-more" id="sub-more-panel" hidden>
+        <div class="sub-insights-grid">
+          <div class="sub-insight">
+            <span class="sub-insight-value">${formatCurrency(totalAnual)}</span>
+            <span class="sub-insight-label">Al año, con tarifas actuales</span>
+          </div>
+          <div class="sub-insight">
+            <span class="sub-insight-value">${formatCurrency(promedioPorServicio)}</span>
+            <span class="sub-insight-label">Promedio por servicio</span>
+          </div>
+        </div>
+      </div>
+    ` : ''}
   `;
   render(html);
+}
+
+function renderCobrosProximos(items) {
+  if (!items || items.length === 0) return '';
+  const top = items[0];
+  const others = items.length - 1;
+  return `
+    <section class="sub-cobros">
+      <div class="sub-cobros-card">
+        <div class="sub-cobros-body">
+          <span class="sub-cobros-eyebrow">Próximo cobro</span>
+          <span class="sub-cobros-title">${esc(top.sub.servicio)} cobra el ${top.sub.fechaCorte}</span>
+          <span class="sub-cobros-sub">${top.dias === 0 ? 'Hoy' : `En ${top.dias} ${top.dias === 1 ? 'día' : 'días'}`} · ${formatCurrency(top.sub.costo)}</span>
+        </div>
+        ${others > 0 ? `<span class="sub-cobros-more">+${others} más esta semana</span>` : ''}
+      </div>
+    </section>
+  `;
+}
+
+function renderTotalMes(total, count) {
+  return `
+    <section class="sub-total">
+      <div class="sub-total-value">${formatCurrency(total)}</div>
+      <div class="sub-total-label">al mes en ${count} ${count === 1 ? 'servicio' : 'servicios'}</div>
+    </section>
+  `;
+}
+
+function renderSubRow(s) {
+  const cuenta = getCuentaById(s.cuentaId);
+  if (suscripcionesTab === 'activas') {
+    const todayDay = new Date().getDate();
+    const dias = Number(s.fechaCorte) - todayDay;
+    let proximoCorteLabel;
+    if (!Number.isFinite(dias)) {
+      proximoCorteLabel = '—';
+    } else if (dias < 0) {
+      proximoCorteLabel = `Día ${s.fechaCorte}`;
+    } else if (dias === 0) {
+      proximoCorteLabel = 'Hoy';
+    } else if (dias <= 5) {
+      proximoCorteLabel = `En ${dias} ${dias === 1 ? 'día' : 'días'} · ${formatCurrency(s.costo)}`;
+    } else {
+      proximoCorteLabel = `Día ${s.fechaCorte}`;
+    }
+    return `
+      <tr>
+        <td>
+          <div class="sub-row-name">${esc(s.servicio)}</div>
+          ${s.descripcion ? `<div class="sub-row-desc">${esc(s.descripcion)}</div>` : ''}
+        </td>
+        <td><span class="sub-row-corte ${dias >= 0 && dias <= 5 ? 'is-soon' : ''}">${proximoCorteLabel}</span></td>
+        <td>${getCuentaBadge(cuenta)}</td>
+        <td class="text-right text-mono" style="font-weight:600">${formatCurrency(s.costo)}</td>
+        <td class="text-right">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="cancelarSuscripcion('${s.id}')" title="Cancelar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="eliminarSuscripcion('${s.id}')" title="Eliminar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </td>
+      </tr>
+    `;
+  }
+  return `
+    <tr>
+      <td>
+        <div class="sub-row-name">${esc(s.servicio)}</div>
+        ${s.motivoCancelacion ? `<div class="sub-row-desc">${esc(s.motivoCancelacion)}</div>` : ''}
+      </td>
+      <td>${s.fechaCancelacion ? `<div style="font-weight:500">${formatDate(s.fechaCancelacion)}</div>` : '—'}</td>
+      <td>${getCuentaBadge(cuenta)}</td>
+      <td class="text-right text-mono" style="font-weight:600;color:var(--text-tertiary)">${formatCurrency(s.costo)}</td>
+      <td class="text-right">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="reactivarSuscripcion('${s.id}')" title="Reactivar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="eliminarSuscripcion('${s.id}')" title="Eliminar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      </td>
+    </tr>
+  `;
+}
+
+function toggleSubMore(btn) {
+  const panel = document.getElementById('sub-more-panel');
+  if (!panel) return;
+  const isOpen = !panel.hidden;
+  panel.hidden = isOpen;
+  btn.setAttribute('aria-expanded', String(!isOpen));
+  const text = btn.querySelector('.ast-more-toggle-text');
+  if (text) text.textContent = isOpen ? 'Ver más' : 'Ver menos';
+}
+
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  const d = document.createElement('div');
+  d.textContent = String(str);
+  return d.innerHTML;
 }
 
 function openNuevaSuscripcionModal() {

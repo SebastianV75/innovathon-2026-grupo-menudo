@@ -644,6 +644,145 @@
   font-size: var(--text-xs);
 }
 
+.list-empty {
+  text-align: center;
+  padding: var(--space-2xl) var(--space-md);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+/* ── Suscripciones: focus group ───────────────────────── */
+
+.sub-cobros { margin-bottom: var(--space-md); }
+
+.sub-cobros-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius-xl);
+}
+
+.sub-cobros-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sub-cobros-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--warning);
+}
+
+.sub-cobros-title {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.sub-cobros-sub {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.sub-cobros-more {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.sub-total { margin-bottom: var(--space-md); }
+
+.sub-total-value {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.sub-total-label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.sub-row-name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sub-row-desc {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin-top: 2px;
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sub-row-corte {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.sub-row-corte.is-soon {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.sub-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-sm);
+}
+
+.sub-insight {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-left-width: 3px;
+  border-left-color: var(--border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.sub-insight-value {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.sub-insight-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 520px) {
+  .sub-insights-grid { grid-template-columns: 1fr; }
+}
+
 /* Form View (Odoo style) */
 .form-view {
   max-width: 800px;
