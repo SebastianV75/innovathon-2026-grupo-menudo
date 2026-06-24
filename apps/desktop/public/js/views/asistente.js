@@ -236,7 +236,7 @@ function generateLocalBrief(snapshot) {
   }
 
   if (tareas.pendientes.length === 0 && tareas.enProgreso.length === 0) {
-    defer.push('Sin tareas abiertas');
+    defer.push('Sin tareas abiertas — buen momento para descansar o planear');
   }
 
   // ── Alerts ──
@@ -345,7 +345,7 @@ function renderPriority(p) {
   const href = route ? `href="${esc(route)}"` : '';
   return `
     <section class="ast-priority">
-      <h3 class="ast-label ast-label-accent">Necesita tu atencion</h3>
+      <h3 class="ast-label ast-label-accent">Hoy te toca</h3>
       <${tag} ${href} class="ast-priority-card">
         <div class="ast-priority-body">
           <span class="ast-priority-title">${esc(p.title)}</span>
@@ -361,7 +361,7 @@ function renderNext(items) {
   if (!items || items.length === 0) return '';
   return `
     <section class="ast-section">
-      <h3 class="ast-label">Luego</h3>
+      <h3 class="ast-label">Después</h3>
       <ul class="ast-next-list">
         ${items.map(n => {
           const route = safeRoute(n.route);
@@ -423,7 +423,7 @@ function renderAlerts(items) {
   if (!items || items.length === 0) return '';
   return `
     <section class="ast-section">
-      <h3 class="ast-label">Alertas</h3>
+      <h3 class="ast-label">Pendiente de tu atención</h3>
       <ul class="ast-alert-list">
         ${items.map(a => `
           <li class="ast-alert ast-alert-${esc(a.severity)}">
@@ -660,42 +660,41 @@ function buildSavingsTips(s) {
   const { finanzas, suscripciones } = s;
   const tips = [];
 
-  // Recorte de la mayor categoria de gasto
+  // Sugerencia suave sobre la mayor categoria de gasto
   if (finanzas.topCategoria && finanzas.gastos > 0) {
     const [cat, monto] = finanzas.topCategoria;
     const ahorro = Math.round(monto * 0.15);
     if (ahorro > 0) {
       tips.push({
-        title: `Recorta 15% en ${cat}: ahorras ~${formatCurrency(ahorro)}/mes`,
-        detail: `Es tu mayor gasto (${formatCurrency(monto)}). Un ajuste pequeno rinde.`,
+        title: `${cat} concentra ${formatCurrency(monto)} de tus gastos`,
+        detail: `Un ajuste del 15% aqui suma ~${formatCurrency(ahorro)} al mes. Solo si quieres.`,
       });
     }
   }
 
-  // Suscripcion mas cara
+  // Suscripcion mas cara — invitar a revisar, no a cancelar
   if (suscripciones.activas.length > 0) {
     const masCara = [...suscripciones.activas].sort((a, b) => b.costo - a.costo)[0];
     if (masCara && masCara.costo > 0) {
       tips.push({
-        title: `Revisa ${masCara.servicio}: ${formatCurrency(masCara.costo)}/mes`,
-        detail: `Es tu suscripcion mas cara — ${formatCurrency(masCara.costo * 12)} al año. Cancelarla si no la usas libera ese monto.`,
+        title: `${masCara.servicio} es tu suscripcion mas cara`,
+        detail: `${formatCurrency(masCara.costo)}/mes · ${formatCurrency(masCara.costo * 12)} al ano. Vale la pena confirmar que la usas.`,
       });
     }
   }
 
-  // Deficit / meta concreta
+  // Balance como dato, no como meta rigida
   if (finanzas.balance < 0) {
     tips.push({
-      title: `Recorta ~${formatCurrency(Math.abs(finanzas.balance))} para cerrar el mes en positivo`,
-      detail: 'Tus gastos van por encima de tus ingresos este mes.',
+      title: `Este mes tus gastos superan a tus ingresos en ${formatCurrency(Math.abs(finanzas.balance))}`,
+      detail: 'Pasara. Mira que categoria crecio mas y ajusta con calma.',
     });
   } else if (finanzas.ingresos > 0) {
     const pct = Math.round((finanzas.balance / finanzas.ingresos) * 100);
     if (pct < 20 && finanzas.balance > 0) {
-      const meta = Math.round(finanzas.ingresos * 0.20 - finanzas.balance);
       tips.push({
-        title: `Te faltan ~${formatCurrency(meta)} para ahorrar el 20% de tu ingreso`,
-        detail: `Vas en ${pct}%. Recortar gastos chicos te acerca rapido.`,
+        title: `Vas ${pct}% de margen este mes`,
+        detail: 'Si quieres, apunta a 20% ajustando gastos chicos. Sin prisa.',
       });
     }
   }
@@ -745,6 +744,17 @@ async function renderAsistente() {
   const startTasks = recommendTasks(snapshot);
   const savings = buildSavingsTips(snapshot);
 
+  // Enfoque: 1 prioridad, 2 "luego", 3 alertas. El resto se ofrece bajo "Ver más".
+  const focusNext = (next || []).slice(0, 2);
+  const focusAlerts = (alerts || []).slice(0, 3);
+  const hasMore =
+    freeTime.taskSlots >= 0 ||
+    startTasks.length > 0 ||
+    insights.length > 0 ||
+    savings.length > 0 ||
+    (context && context.length > 0) ||
+    (deferItems && deferItems.length > 0);
+
   const html = `
     <div class="asistente">
       <header class="ast-header">
@@ -756,17 +766,39 @@ async function renderAsistente() {
         <button class="btn btn-secondary btn-sm" onclick="refreshBrief()">Actualizar</button>
       </header>
 
-      ${renderPriority(priority)}
-      ${renderFreeTime(freeTime)}
-      ${renderStartHere(startTasks)}
-      ${renderInsights(insights)}
-      ${renderSavings(savings)}
-      ${renderAlerts(alerts)}
-      ${renderContext(context)}
-      ${renderDefer(deferItems)}
+      <section class="ast-focus">
+        ${renderPriority(priority)}
+        ${focusNext.length > 0 ? renderNext(focusNext) : ''}
+        ${focusAlerts.length > 0 ? renderAlerts(focusAlerts) : ''}
+      </section>
+
+      ${hasMore ? `
+        <button class="ast-more-toggle" type="button" aria-expanded="false" aria-controls="ast-more-panel" onclick="toggleAsistenteMore(this)">
+          <span class="ast-more-toggle-text">Ver más</span>
+          <svg class="ast-more-toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="ast-more" id="ast-more-panel" hidden>
+          ${renderFreeTime(freeTime)}
+          ${startTasks.length > 0 ? renderStartHere(startTasks) : ''}
+          ${insights.length > 0 ? renderInsights(insights) : ''}
+          ${savings.length > 0 ? renderSavings(savings) : ''}
+          ${context && context.length > 0 ? renderContext(context) : ''}
+          ${deferItems && deferItems.length > 0 ? renderDefer(deferItems) : ''}
+        </div>
+      ` : ''}
     </div>
   `;
   render(html);
+}
+
+function toggleAsistenteMore(btn) {
+  const panel = document.getElementById('ast-more-panel');
+  if (!panel) return;
+  const isOpen = !panel.hidden;
+  panel.hidden = isOpen;
+  btn.setAttribute('aria-expanded', String(!isOpen));
+  const text = btn.querySelector('.ast-more-toggle-text');
+  if (text) text.textContent = isOpen ? 'Ver más' : 'Ver menos';
 }
 
 function renderAsistenteLoading() {
