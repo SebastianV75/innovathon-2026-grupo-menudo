@@ -181,6 +181,8 @@ aliester/
 
 - **Vercel** sirviendo `apps/desktop/public` como estático (sin build step).
 - Root/output configurado en el proyecto de Vercel.
+- Antes de promover, validar que Vercel apunte a `apps/desktop/public`.
+- Si un deploy falla por esa configuración, revertir al último deploy estable en Vercel y corregir el root/output antes de redeployar.
 - **InsForge** con proyecto en `us-east` (`https://47br95d3.us-east.insforge.app`).
 - **App móvil** como WebView del sitio (placeholder; lista para evolución a código nativo).
 - Configuración declarativa en `insforge.toml`; `vercel.json` sólo define comportamiento de URLs.

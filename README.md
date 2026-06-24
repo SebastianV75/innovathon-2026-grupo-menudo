@@ -52,6 +52,8 @@ cd apps/desktop/public && python3 -m http.server 8080
 
 Vercel sirve `apps/desktop/public` como sitio estático. El root/output directory se configura en el proyecto de Vercel; `vercel.json` sólo define comportamiento de URLs.
 
+Antes de promover a producción, validar en Vercel que el root/output apunte a `apps/desktop/public`. Si un deploy sale mal por esa configuración, revertir al último deploy estable en Vercel y corregir el root/output antes de redeployar.
+
 El backend se deploya por separado con el CLI de InsForge desde la raíz.
 
 ## Estado actual

@@ -34,7 +34,7 @@ aliester/
 
 ## Frontends
 
-- **`apps/desktop/public/`** — The production web app. Vanilla JS SPA with a hash-based router. Served by Vercel from this path. The project root/output directory is configured in Vercel, not in this repo.
+- **`apps/desktop/public/`** — The production web app. Vanilla JS SPA with a hash-based router. Served by Vercel from this path. The project root/output directory is configured in Vercel, not in this repo. Validate that setting before production promotion; if it drifts, roll back to the last stable Vercel deploy and fix the root/output before redeploying.
 - **`apps/mobile/app/`** — The mobile app. Currently a minimal native shell that loads the desktop web app inside a WebView. Will evolve into a separate native codebase.
 
 ## Backend
@@ -47,7 +47,7 @@ The InsForge backend (`functions/`, `migrations/`, `insforge.toml`, `.insforge/`
 |------|----------|-----|
 | `functions/` | Stays at root | InsForge CLI deploys edge functions from this path by convention |
 | `migrations/` | Stays at root | Standard InsForge migration convention |
-| `apps/desktop/public/` | Served as-is by Vercel | Static site, no build step; `vercel.json` points here |
+| `apps/desktop/public/` | Served as-is by Vercel | Static site, no build step; Vercel project settings point here |
 | `apps/mobile/app/` | Separate native codebase | Keeps mobile platform-specific code out of the web app |
 | `apps/desktop/public/js/services/` | SDK client lives here | It wraps an external service (InsForge), not a vendored library |
 | `apps/desktop/public/js/data/` | Store stays here | It IS the data layer — the name matches the role |
