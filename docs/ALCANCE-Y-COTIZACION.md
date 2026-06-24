@@ -23,7 +23,7 @@
 | Auth | Email + password con verificación por código | Sesión manejada por SDK de InsForge |
 | IA | **OpenRouter** (modelo configurable vía env, default `openai/gpt-4o-mini`) | Con fallback heurístico local cuando no hay API key o falla |
 | Storage | InsForge Storage (S3-compatible) | Bucket privado `task-attachments` con RLS por usuario |
-| Deploy frontend | **Vercel** | `vercel.json` apunta a `apps/desktop/public` |
+| Deploy frontend | **Vercel** | Sirve `apps/desktop/public`; root/output configurado en Vercel |
 | Deploy backend | **InsForge CLI** | `migrations/` + `functions/` desde la raíz |
 | App móvil | **WebView nativa** (placeholder) | Carga el web actual; pensada para evolucionar a código nativo |
 | Moneda | MXN (base) con conversión a USD/EUR | Tasas hardcodeadas en cliente |
@@ -47,8 +47,7 @@ aliester/
 │   └── google-calendar-sync.ts
 ├── migrations/                # 7 migraciones SQL aplicadas con InsForge CLI
 ├── docs/                      # Documentación
-├── openspec/                  # Spec-driven change tracking
-├── vercel.json                # Config de deploy
+├── vercel.json                # Config de URLs de Vercel
 ├── insforge.toml              # Config de InsForge (auth, SMTP, storage, etc.)
 └── .env.local                 # Secretos locales (gitignored)
 ```
@@ -181,9 +180,10 @@ aliester/
 ### 4.3 Deploy / infra
 
 - **Vercel** sirviendo `apps/desktop/public` como estático (sin build step).
+- Root/output configurado en el proyecto de Vercel.
 - **InsForge** con proyecto en `us-east` (`https://47br95d3.us-east.insforge.app`).
 - **App móvil** como WebView del sitio (placeholder; lista para evolución a código nativo).
-- Configuración declarativa en `vercel.json` e `insforge.toml`.
+- Configuración declarativa en `insforge.toml`; `vercel.json` sólo define comportamiento de URLs.
 
 ---
 

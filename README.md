@@ -50,7 +50,9 @@ cd apps/desktop/public && python3 -m http.server 8080
 
 ### Deploy
 
-Vercel sirve `apps/desktop/public` (configurado en `vercel.json`). El backend se deploya por separado con el CLI de InsForge desde la raíz.
+Vercel sirve `apps/desktop/public` como sitio estático. El root/output directory se configura en el proyecto de Vercel; `vercel.json` sólo define comportamiento de URLs.
+
+El backend se deploya por separado con el CLI de InsForge desde la raíz.
 
 ## Estado actual
 
